@@ -1,0 +1,322 @@
+{
+  "system_name": "智能饮食推荐系统",
+  "version": "1.0.0",
+  "access_control": {
+    "roles": {
+      "admin": {
+        "name": "系统管理员",
+        "description": "拥有系统全部权限",
+        "permissions": [
+          "system:*",
+          "user:*",
+          "diet:*",
+          "ml:*",
+          "monitor:*"
+        ],
+        "frontend_access": [
+          "admin_dashboard",
+          "user_management",
+          "diet_management",
+          "system_config",
+          "ml_management",
+          "data_analysis",
+          "system_monitor"
+        ]
+      },
+      "manager": {
+        "name": "业务管理员",
+        "description": "管理业务数据和用户",
+        "permissions": [
+          "user:view",
+          "user:edit",
+          "diet:*",
+          "ml:view"
+        ],
+        "frontend_access": [
+          "admin_dashboard",
+          "user_management",
+          "diet_management",
+          "data_analysis"
+        ]
+      },
+      "user": {
+        "name": "普通用户",
+        "description": "使用系统基础功能",
+        "permissions": [
+          "user:profile",
+          "diet:own",
+          "ml:recommend"
+        ],
+        "frontend_access": [
+          "user_dashboard",
+          "diet_record",
+          "diet_analysis",
+          "recommendation",
+          "profile_management"
+        ]
+      }
+    },
+    "endpoints": {
+      "admin_only": {
+        "paths": [
+          "/api/admin/**",
+          "/system/**",
+          "/monitor/**",
+          "/diet/management/**"
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE"],
+        "required_roles": ["admin", "manager"]
+      },
+      "user_only": {
+        "paths": [
+          "/api/user/**"
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE"],
+        "required_roles": ["user"],
+        "data_isolation": true
+      },
+      "public": {
+        "paths": [
+          "/login",
+          "/register",
+          "/captchaImage",
+          "/api/public/**"
+        ],
+        "methods": ["GET", "POST"],
+        "required_roles": []
+      }
+    },
+    "frontend_routes": {
+      "admin_frontend": {
+        "base_url": "http://localhost:81",
+        "protected_routes": [
+          "/diet/record",
+          "/diet/food",
+          "/diet/recommendation",
+          "/system/user",
+          "/system/config",
+          "/monitor/**"
+        ],
+        "public_routes": [
+          "/login",
+          "/404",
+          "/401"
+        ]
+      },
+      "user_frontend": {
+        "base_url": "http://localhost:3000",
+        "protected_routes": [
+          "/dashboard",
+          "/records",
+          "/analysis",
+          "/recommendations",
+          "/profile"
+        ],
+        "public_routes": [
+          "/",
+          "/login",
+          "/register"
+        ]
+      }
+    }
+  },
+  "data_isolation": {
+    "user_data": {
+      "description": "用户只能访问自己的数据",
+      "tables": [
+        "diet_record",
+        "diet_recommendation",
+        "diet_user_preference",
+        "sys_user_health"
+      ],
+      "filter_column": "user_id",
+      "enforcement": "automatic"
+    },
+    "admin_data": {
+      "description": "管理员可以访问所有数据",
+      "tables": ["*"],
+      "filter_column": null,
+      "enforcement": "none"
+    }
+  },
+  "security_policies": {
+    "authentication": {
+      "method": "JWT",
+      "token_expiry": 7200,
+      "refresh_enabled": true,
+      "multi_device_login": true
+    },
+    "authorization": {
+      "method": "RBAC",
+      "permission_cache": true,
+      "cache_ttl": 300
+    },
+    "data_protection": {
+      "encrypt_sensitive_data": true,
+      "audit_log": true,
+      "data_masking": true
+    }
+  },
+  "api_access_matrix": {
+    "diet_record": {
+      "list": {
+        "admin": "all_users",
+        "manager": "all_users", 
+        "user": "own_only"
+      },
+      "create": {
+        "admin": "any_user",
+        "manager": "any_user",
+        "user": "own_only"
+      },
+      "update": {
+        "admin": "any_record",
+        "manager": "any_record",
+        "user": "own_only"
+      },
+      "delete": {
+        "admin": "any_record",
+        "manager": "any_record",
+        "user": "own_only"
+      }
+    },
+    "user_management": {
+      "list": {
+        "admin": "allowed",
+        "manager": "allowed",
+        "user": "denied"
+      },
+      "create": {
+        "admin": "allowed",
+        "manager": "denied",
+        "user": "denied"
+      },
+      "update": {
+        "admin": "allowed",
+        "manager": "basic_info_only",
+        "user": "own_profile_only"
+      },
+      "delete": {
+        "admin": "allowed",
+        "manager": "denied",
+        "user": "denied"
+      }
+    },
+    "system_config": {
+      "view": {
+        "admin": "allowed",
+        "manager": "denied",
+        "user": "denied"
+      },
+      "modify": {
+        "admin": "allowed",
+        "manager": "denied",
+        "user": "denied"
+      }
+    },
+    "ml_service": {
+      "train_model": {
+        "admin": "allowed",
+        "manager": "denied",
+        "user": "denied"
+      },
+      "get_recommendation": {
+        "admin": "any_user",
+        "manager": "any_user",
+        "user": "own_only"
+      },
+      "view_model_status": {
+        "admin": "allowed",
+        "manager": "allowed",
+        "user": "denied"
+      }
+    }
+  },
+  "ui_permissions": {
+    "admin_frontend": {
+      "menu_items": {
+        "dashboard": ["admin", "manager"],
+        "user_management": ["admin", "manager"],
+        "diet_management": ["admin", "manager"],
+        "food_database": ["admin", "manager"],
+        "recommendation_config": ["admin"],
+        "system_config": ["admin"],
+        "ml_management": ["admin"],
+        "system_monitor": ["admin"],
+        "log_management": ["admin"]
+      },
+      "buttons": {
+        "add_user": ["admin"],
+        "delete_user": ["admin"],
+        "reset_password": ["admin"],
+        "system_backup": ["admin"],
+        "train_model": ["admin"]
+      }
+    },
+    "user_frontend": {
+      "pages": {
+        "dashboard": ["user"],
+        "diet_records": ["user"],
+        "nutrition_analysis": ["user"],
+        "recommendations": ["user"],
+        "goal_setting": ["user"],
+        "profile": ["user"]
+      },
+      "features": {
+        "ai_recognition": ["user"],
+        "export_data": ["user"],
+        "share_achievements": ["user"]
+      }
+    }
+  },
+  "validation_rules": {
+    "cross_user_access": {
+      "description": "防止用户访问其他用户数据",
+      "implementation": "middleware_check",
+      "error_response": {
+        "code": 403,
+        "message": "无权限访问其他用户数据"
+      }
+    },
+    "role_escalation": {
+      "description": "防止权限提升攻击",
+      "implementation": "jwt_validation",
+      "error_response": {
+        "code": 401,
+        "message": "权限验证失败"
+      }
+    },
+    "data_modification": {
+      "description": "确保数据修改权限正确",
+      "implementation": "ownership_check",
+      "error_response": {
+        "code": 403,
+        "message": "无权限修改此数据"
+      }
+    }
+  },
+  "monitoring": {
+    "access_logs": {
+      "enabled": true,
+      "log_level": "INFO",
+      "include_sensitive": false
+    },
+    "security_events": {
+      "failed_auth": true,
+      "permission_denied": true,
+      "suspicious_activity": true
+    },
+    "alerts": {
+      "multiple_failed_logins": {
+        "threshold": 5,
+        "timeframe": 300,
+        "action": "lock_account"
+      },
+      "privilege_escalation_attempt": {
+        "threshold": 1,
+        "timeframe": 60,
+        "action": "alert_admin"
+      }
+    }
+  }
+}

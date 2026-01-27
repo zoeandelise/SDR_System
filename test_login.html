@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>登录测试</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <h1>登录功能测试</h1>
+    
+    <div>
+        <h2>1. 测试API可达性</h2>
+        <button onclick="testBackend()">测试后端连接</button>
+        <div id="backendResult"></div>
+    </div>
+    
+    <div>
+        <h2>2. 测试登录API</h2>
+        <form id="loginForm">
+            <input type="text" id="username" placeholder="用户名" value="admin">
+            <input type="password" id="password" placeholder="密码" value="admin123">
+            <button type="submit">登录</button>
+        </form>
+        <div id="loginResult"></div>
+    </div>
+
+    <div>
+        <h2>3. 测试用户信息获取</h2>
+        <button onclick="testGetUserInfo()">获取用户信息</button>
+        <div id="userInfoResult"></div>
+    </div>
+
+    <script>
+        // 全局变量存储token
+        let currentToken = '';
+
+        // 测试后端连接
+        async function testBackend() {
+            const resultDiv = document.getElementById('backendResult');
+            resultDiv.innerHTML = '测试中...';
+            
+            try {
+                const response = await fetch('http://localhost:8080/actuator/health');
+                const data = await response.json();
+                resultDiv.innerHTML = `<p style="color: green;">✅ 后端连接正常: ${JSON.stringify(data)}</p>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ 后端连接失败: ${error.message}</p>`;
+            }
+        }
+
+        // 测试登录
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const resultDiv = document.getElementById('loginResult');
+            resultDiv.innerHTML = '登录中...';
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                // 1. 直接调用后端
+                console.log('🚀 直接调用后端登录API...');
+                const backendResponse = await fetch('http://localhost:8080/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (!backendResponse.ok) {
+                    throw new Error(`后端直接调用失败: ${backendResponse.status}`);
+                }
+                
+                const backendData = await backendResponse.json();
+                console.log('✅ 后端直接调用成功:', backendData);
+                currentToken = backendData.token;
+                
+                // 2. 通过前端代理调用
+                console.log('🚀 通过前端代理调用登录API...');
+                const proxyResponse = await fetch('http://localhost:3000/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (!proxyResponse.ok) {
+                    throw new Error(`代理调用失败: ${proxyResponse.status}`);
+                }
+                
+                const proxyData = await proxyResponse.json();
+                console.log('✅ 代理调用成功:', proxyData);
+                
+                resultDiv.innerHTML = `
+                    <p style="color: green;">✅ 登录成功!</p>
+                    <p><strong>后端直接调用:</strong> ${JSON.stringify(backendData)}</p>
+                    <p><strong>代理调用:</strong> ${JSON.stringify(proxyData)}</p>
+                    <p><strong>Token:</strong> ${currentToken.substring(0, 50)}...</p>
+                `;
+                
+            } catch (error) {
+                console.error('❌ 登录失败:', error);
+                resultDiv.innerHTML = `<p style="color: red;">❌ 登录失败: ${error.message}</p>`;
+            }
+        });
+
+        // 测试获取用户信息
+        async function testGetUserInfo() {
+            const resultDiv = document.getElementById('userInfoResult');
+            resultDiv.innerHTML = '获取中...';
+            
+            if (!currentToken) {
+                resultDiv.innerHTML = '<p style="color: orange;">⚠️ 请先登录获取token</p>';
+                return;
+            }
+            
+            try {
+                // 1. 直接调用后端
+                console.log('🚀 直接调用后端获取用户信息...');
+                const backendResponse = await fetch('http://localhost:8080/getInfo', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const backendData = await backendResponse.json();
+                console.log('✅ 后端用户信息:', backendData);
+                
+                // 2. 通过前端代理调用
+                console.log('🚀 通过前端代理获取用户信息...');
+                const proxyResponse = await fetch('http://localhost:3000/getInfo', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const proxyData = await proxyResponse.json();
+                console.log('✅ 代理用户信息:', proxyData);
+                
+                resultDiv.innerHTML = `
+                    <p style="color: green;">✅ 获取用户信息成功!</p>
+                    <p><strong>后端直接调用:</strong> ${JSON.stringify(backendData)}</p>
+                    <p><strong>代理调用:</strong> ${JSON.stringify(proxyData)}</p>
+                `;
+                
+            } catch (error) {
+                console.error('❌ 获取用户信息失败:', error);
+                resultDiv.innerHTML = `<p style="color: red;">❌ 获取用户信息失败: ${error.message}</p>`;
+            }
+        }
+
+        // 页面加载时自动测试后端连接
+        window.onload = function() {
+            testBackend();
+        };
+    </script>
+</body>
+</html>

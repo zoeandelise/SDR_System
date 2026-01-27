@@ -1,0 +1,68 @@
+ML训练进度问题调试步骤
+================================
+
+问题：train_model_task 函数没有被执行
+
+已添加的调试代码：
+1. 在 train_model_task 开头添加 print 语句
+2. 在 /api/model/train 端点添加任务提交日志
+3. 在训练过程中添加详细的进度日志
+
+测试步骤：
+=========
+
+1. 停止当前ML服务（Ctrl+C）
+
+2. 清除Python缓存
+   cd E:\study\BISHE\SDR_System\SDR_System-ml
+   del /s /q __pycache__
+   del /s /q *.pyc
+
+3. 重新启动ML服务
+   python main_service.py
+
+4. 启动训练并观察日志
+
+期望看到的新日志（按顺序）：
+================================
+
+1. 准备提交训练任务到线程池: content_based (training_id: xxx)
+2. 训练任务已提交到线程池: content_based, future=<Future...>
+3. 训练任务已提交: content_based (training_id: xxx)
+4. [DEBUG] train_model_task 被调用: content_based, 180, xxx  ← 关键！
+5. [DEBUG] 进入try块
+6. 🚀 开始训练任务: content_based
+7. 📊 training_id = xxx (类型: <class 'int'>)
+8. 📊 training_days = 180
+9. 训练进度 [content_based]: 5% - 初始化训练环境...
+10. ...
+11. 执行实际模型训练: content_based
+12. 调用 model_manager.train_model(content_based, 180)
+13. 训练进度 [content_based]: 95% - 模型训练和保存中...
+14. 开始训练基于内容的推荐模型...  (来自 content_based.py)
+15. ✅ 基于内容的推荐模型训练完成
+16. 训练返回结果: {'success': True, ...}  ← 最关键！
+17. ✅ 模型训练成功: content_based
+18. 📊 训练任务状态已更新: progress=100%, status=completed
+
+如果看不到第4行日志：
+===================
+说明 train_model_task 根本没有被调用
+可能原因：
+- 线程池没有启动
+- 任务提交失败
+- 有其他代码路径
+
+如果看到第4行但没有第5行：
+========================
+说明函数被调用但立即出错
+检查异常日志
+
+如果看到第5行但没有第6行：
+========================
+说明logger配置有问题
+但print应该能输出
+
+下一步行动：
+===========
+重启服务后，将完整的日志输出发给我分析

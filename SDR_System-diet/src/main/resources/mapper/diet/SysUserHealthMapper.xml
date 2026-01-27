@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.SDR_System.diet.mapper.SysUserHealthMapper">
+    
+    <resultMap type="com.SDR_System.system.domain.SysUserHealth" id="SysUserHealthResult">
+        <result property="healthId"    column="health_id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="height"    column="height"    />
+        <result property="weight"    column="weight"    />
+        <result property="age"    column="age"    />
+        <result property="gender"    column="gender"    />
+        <result property="activityLevel"    column="activity_level"    />
+        <result property="healthGoal"    column="health_goal"    />
+        <result property="targetWeight"    column="target_weight"    />
+        <result property="dailyCalorieGoal"    column="daily_calorie_goal"    />
+        <result property="allergies"    column="allergies"    />
+        <result property="diseases"    column="diseases"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="userName"    column="user_name"    />
+    </resultMap>
+
+    <sql id="selectSysUserHealthVo">
+        select h.health_id, h.user_id, h.height, h.weight, h.age, h.gender, h.activity_level, 
+               h.health_goal, h.target_weight, h.daily_calorie_goal, h.allergies, h.diseases, 
+               h.create_time, h.update_time, u.user_name
+        from sys_user_health h
+        left join sys_user u on h.user_id = u.user_id
+    </sql>
+
+    <select id="selectSysUserHealthList" parameterType="com.SDR_System.system.domain.SysUserHealth" resultMap="SysUserHealthResult">
+        <include refid="selectSysUserHealthVo"/>
+        <where>  
+            <if test="userId != null "> and h.user_id = #{userId}</if>
+            <if test="gender != null  and gender != ''"> and h.gender = #{gender}</if>
+            <if test="activityLevel != null  and activityLevel != ''"> and h.activity_level = #{activityLevel}</if>
+            <if test="healthGoal != null  and healthGoal != ''"> and h.health_goal = #{healthGoal}</if>
+        </where>
+        order by h.create_time desc
+    </select>
+    
+    <select id="selectSysUserHealthByHealthId" parameterType="Long" resultMap="SysUserHealthResult">
+        <include refid="selectSysUserHealthVo"/>
+        where h.health_id = #{healthId}
+    </select>
+
+    <select id="selectSysUserHealthByUserId" parameterType="Long" resultMap="SysUserHealthResult">
+        <include refid="selectSysUserHealthVo"/>
+        where h.user_id = #{userId}
+    </select>
+        
+    <insert id="insertSysUserHealth" parameterType="com.SDR_System.system.domain.SysUserHealth" useGeneratedKeys="true" keyProperty="healthId">
+        insert into sys_user_health
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="height != null">height,</if>
+            <if test="weight != null">weight,</if>
+            <if test="age != null">age,</if>
+            <if test="gender != null">gender,</if>
+            <if test="activityLevel != null">activity_level,</if>
+            <if test="healthGoal != null">health_goal,</if>
+            <if test="targetWeight != null">target_weight,</if>
+            <if test="dailyCalorieGoal != null">daily_calorie_goal,</if>
+            <if test="allergies != null">allergies,</if>
+            <if test="diseases != null">diseases,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="height != null">#{height},</if>
+            <if test="weight != null">#{weight},</if>
+            <if test="age != null">#{age},</if>
+            <if test="gender != null">#{gender},</if>
+            <if test="activityLevel != null">#{activityLevel},</if>
+            <if test="healthGoal != null">#{healthGoal},</if>
+            <if test="targetWeight != null">#{targetWeight},</if>
+            <if test="dailyCalorieGoal != null">#{dailyCalorieGoal},</if>
+            <if test="allergies != null">#{allergies},</if>
+            <if test="diseases != null">#{diseases},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateSysUserHealth" parameterType="com.SDR_System.system.domain.SysUserHealth">
+        update sys_user_health
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="height != null">height = #{height},</if>
+            <if test="weight != null">weight = #{weight},</if>
+            <if test="age != null">age = #{age},</if>
+            <if test="gender != null">gender = #{gender},</if>
+            <if test="activityLevel != null">activity_level = #{activityLevel},</if>
+            <if test="healthGoal != null">health_goal = #{healthGoal},</if>
+            <if test="targetWeight != null">target_weight = #{targetWeight},</if>
+            <if test="dailyCalorieGoal != null">daily_calorie_goal = #{dailyCalorieGoal},</if>
+            <if test="allergies != null">allergies = #{allergies},</if>
+            <if test="diseases != null">diseases = #{diseases},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where health_id = #{healthId}
+    </update>
+
+    <delete id="deleteSysUserHealthByHealthId" parameterType="Long">
+        delete from sys_user_health where health_id = #{healthId}
+    </delete>
+
+    <delete id="deleteSysUserHealthByHealthIds" parameterType="String">
+        delete from sys_user_health where health_id in 
+        <foreach item="healthId" collection="array" open="(" separator="," close=")">
+            #{healthId}
+        </foreach>
+    </delete>
+
+</mapper>

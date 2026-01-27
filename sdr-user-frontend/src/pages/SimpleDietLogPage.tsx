@@ -1,0 +1,407 @@
+// 简化版饮食记录页面 - 完全可用
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api, { dietRecordApi } from '../services/api';
+import Navbar from '../components/Navbar';
+import { Card, CardContent } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+
+interface DietRecord {
+  recordId: number;
+  mealType: string;
+  totalCalories: number;
+  totalProtein: number;
+  totalFat: number;
+  totalCarbohydrate: number;
+  notes: string;
+  recordDate: string;
+}
+
+interface QuickFood {
+  name: string;
+  calories: number;
+  protein: number;
+  carb: number;
+  fat: number;
+}
+
+const SimpleDietLogPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [records, setRecords] = useState<DietRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [foodSuggestions, setFoodSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [allFoods, setAllFoods] = useState<any[]>([]);
+
+  // 新增记录表单
+  const [newRecord, setNewRecord] = useState({
+    mealType: '1',
+    notes: '',
+    totalCalories: 0,
+    totalProtein: 0,
+    totalFat: 0,
+    totalCarbohydrate: 0
+  });
+
+  // 常用食物快速选择
+  const quickFoods: QuickFood[] = [
+    { name: '鸡胸肉沙拉 + 全麦面包', calories: 650, protein: 35, carb: 85, fat: 22 },
+    { name: '燕麦粥 + 牛奶 + 香蕉', calories: 420, protein: 20, carb: 60, fat: 12 },
+    { name: '糙米饭 + 西兰花 + 鸡胸肉', calories: 550, protein: 45, carb: 70, fat: 15 },
+    { name: '三文鱼 + 蔬菜沙拉', calories: 480, protein: 38, carb: 25, fat: 28 },
+    { name: '全麦三明治 + 酸奶', calories: 380, protein: 18, carb: 55, fat: 10 },
+    { name: '水果沙拉 + 坚果', calories: 320, protein: 8, carb: 45, fat: 15 },
+    { name: '豆腐 + 青菜 + 米饭', calories: 480, protein: 25, carb: 65, fat: 12 },
+    { name: '牛肉 + 胡萝卜 + 土豆', calories: 620, protein: 42, carb: 58, fat: 24 }
+  ];
+
+  // 选择快速食物
+  const handleSelectQuickFood = (food: QuickFood) => {
+    setNewRecord({
+      ...newRecord,
+      notes: food.name,
+      totalCalories: food.calories,
+      totalProtein: food.protein,
+      totalCarbohydrate: food.carb,
+      totalFat: food.fat
+    });
+  };
+
+  // 处理食物输入（智能联想）
+  const handleFoodInput = (value: string) => {
+    setNewRecord({ ...newRecord, notes: value });
+
+    if (value.trim().length > 0) {
+      // 搜索匹配的食物
+      const matches = allFoods.filter(food =>
+        food.foodName && food.foodName.includes(value)
+      ).slice(0, 5);
+
+      setFoodSuggestions(matches);
+      setShowSuggestions(matches.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  // 选择联想的食物
+  const handleSelectSuggestion = (food: any) => {
+    const portion = 100; // 默认100g
+    setNewRecord({
+      ...newRecord,
+      notes: food.foodName,
+      totalCalories: Math.round((food.caloriesPer100g || 0) * portion / 100),
+      totalProtein: Math.round((food.proteinPer100g || 0) * portion / 100 * 10) / 10,
+      totalCarbohydrate: Math.round((food.carbohydratePer100g || 0) * portion / 100 * 10) / 10,
+      totalFat: Math.round((food.fatPer100g || 0) * portion / 100 * 10) / 10
+    });
+    setShowSuggestions(false);
+  };
+
+  useEffect(() => {
+    loadRecords();
+    loadAllFoods();
+  }, []);
+
+  // 加载所有食物（用于自动联想）
+  const loadAllFoods = async () => {
+    try {
+      const response: any = await api.get('/api/user/diet/foods');
+
+      if (response.code === 200 && response.data) {
+        setAllFoods(response.data);
+      }
+    } catch (error) {
+      console.error('加载食物失败:', error);
+    }
+  };
+
+  const loadRecords = async () => {
+    try {
+      setLoading(true);
+      const response: any = await dietRecordApi.getRecords({});
+      if (response.code === 200 && response.data) {
+        setRecords(response.data);
+      }
+    } catch (error) {
+      console.error('加载记录失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddRecord = async () => {
+    try {
+      const response: any = await dietRecordApi.addRecord(newRecord);
+      if (response.code === 200) {
+        setShowAddForm(false);
+        setNewRecord({ mealType: '1', notes: '', totalCalories: 0, totalProtein: 0, totalFat: 0, totalCarbohydrate: 0 });
+        await loadRecords();
+      }
+    } catch (error: any) {
+      alert('添加失败：' + (error.message || '未知错误'));
+    }
+  };
+
+  const handleDeleteRecord = async (recordId: number) => {
+    if (!window.confirm('确定要删除这条记录吗？')) return;
+
+    try {
+      await dietRecordApi.deleteRecord(recordId);
+      await loadRecords();
+    } catch (error: any) {
+      alert('删除失败：' + (error.message || '未知错误'));
+    }
+  };
+
+  const mealTypeNames: { [key: string]: string } = {
+    '0': '早餐', '1': '午餐', '2': '晚餐', '3': '加餐'
+  };
+
+  const mealTypeEmojis: { [key: string]: string } = {
+    '0': '🍳', '1': '🍱', '2': '🍲', '3': '🍎'
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50/50">
+      <Navbar onMenuClick={() => { }} />
+
+      <div className="max-w-4xl mx-auto px-4 py-8 pb-24 animate-fadeIn">
+
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">饮食记录</h1>
+            <p className="text-gray-500 text-sm">记录每一餐，掌控健康生活</p>
+          </div>
+          <Button onClick={() => setShowAddForm(true)}>
+            + 记一笔
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-20">
+            <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
+            <p className="mt-4 text-gray-500">加载中...</p>
+          </div>
+        ) : records.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-dashed border-gray-200">
+            <span className="text-6xl block mb-4 opacity-50">📝</span>
+            <p className="text-gray-500 mb-6 font-medium">还没有饮食记录</p>
+            <Button onClick={() => setShowAddForm(true)} variant="outline">
+              开始第一条记录
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {records.map((record) => (
+              <Card key={record.recordId} className="hover:shadow-md transition-shadow duration-300 border-l-4 border-l-primary-500">
+                <div className="flex items-start justify-between p-1">
+                  <div className="flex items-start space-x-4 flex-1">
+                    <div className="w-12 h-12 rounded-full bg-primary-50 flex items-center justify-center text-2xl flex-shrink-0">
+                      {mealTypeEmojis[record.mealType] || '🍽️'}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-1">
+                        <span className="font-bold text-gray-900 text-lg">
+                          {mealTypeNames[record.mealType] || '未知'}
+                        </span>
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">
+                          {record.recordDate}
+                        </span>
+                      </div>
+                      <p className="text-gray-700 mb-3 font-medium">{record.notes || '无备注'}</p>
+                      <div className="flex flex-wrap gap-2 text-xs font-medium">
+                        <span className="px-2 py-1 bg-orange-50 text-orange-700 rounded-md border border-orange-100">
+                          🔥 {record.totalCalories} kcal
+                        </span>
+                        <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md border border-blue-100">
+                          💪 {record.totalProtein}g 蛋白
+                        </span>
+                        <span className="px-2 py-1 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-100">
+                          🌾 {record.totalCarbohydrate}g 碳水
+                        </span>
+                        <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-md border border-purple-100">
+                          🧈 {record.totalFat}g 脂肪
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteRecord(record.recordId)}
+                    className="text-gray-400 hover:text-red-500 transition-colors p-2"
+                    title="删除记录"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                  </button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 添加记录弹窗 */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-slideUp max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">添加饮食记录</h3>
+              <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-600">
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">餐次类型</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { val: '0', label: '早餐', emoji: '🍳' },
+                    { val: '1', label: '午餐', emoji: '🍱' },
+                    { val: '2', label: '晚餐', emoji: '🍲' },
+                    { val: '3', label: '加餐', emoji: '🍎' }
+                  ].map((opt) => (
+                    <button
+                      key={opt.val}
+                      onClick={() => setNewRecord({ ...newRecord, mealType: opt.val })}
+                      className={`py-2 rounded-lg text-sm font-medium transition-colors ${newRecord.mealType === opt.val
+                        ? 'bg-primary-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                    >
+                      <span className="mr-1">{opt.emoji}</span> {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  食物描述
+                  <span className="text-xs font-normal text-gray-500 ml-2">（支持自动联想）</span>
+                </label>
+
+                {/* 智能输入框 */}
+                <div className="relative z-20">
+                  <input
+                    type="text"
+                    value={newRecord.notes}
+                    onChange={(e) => handleFoodInput(e.target.value)}
+                    onFocus={() => newRecord.notes && setShowSuggestions(foodSuggestions.length > 0)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    placeholder="例如：燕麦粥、鸡胸肉沙拉..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow outline-none"
+                  />
+
+                  {/* 自动联想下拉 */}
+                  {showSuggestions && foodSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl max-h-60 overflow-auto py-1">
+                      {foodSuggestions.map((food, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => handleSelectSuggestion(food)}
+                          className="px-4 py-3 hover:bg-primary-50 cursor-pointer border-b border-gray-50 last:border-b-0"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-medium text-gray-900">{food.foodName}</div>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                {food.caloriesPer100g}卡 / 100g
+                              </div>
+                            </div>
+                            <span className="text-xs text-primary-600 font-bold bg-primary-50 px-2 py-1 rounded">
+                              自动填充
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 快速选择标签 */}
+                <div className="mt-3 overflow-x-auto pb-2 -mx-1 px-1">
+                  <div className="flex gap-2">
+                    {quickFoods.slice(0, 4).map((food, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSelectQuickFood(food)}
+                        className="flex-shrink-0 text-xs px-3 py-1.5 bg-gray-50 hover:bg-primary-50 hover:text-primary-700 text-gray-600 rounded-full border border-gray-200 transition-colors whitespace-nowrap"
+                      >
+                        ⚡ {food.name.split(' ')[0]}...
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">营养成分 (可选)</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">热量 (kcal)</div>
+                    <input
+                      type="number"
+                      value={newRecord.totalCalories}
+                      onChange={(e) => setNewRecord({ ...newRecord, totalCalories: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">蛋白质 (g)</div>
+                    <input
+                      type="number"
+                      value={newRecord.totalProtein}
+                      onChange={(e) => setNewRecord({ ...newRecord, totalProtein: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">碳水 (g)</div>
+                    <input
+                      type="number"
+                      value={newRecord.totalCarbohydrate}
+                      onChange={(e) => setNewRecord({ ...newRecord, totalCarbohydrate: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">脂肪 (g)</div>
+                    <input
+                      type="number"
+                      value={newRecord.totalFat}
+                      onChange={(e) => setNewRecord({ ...newRecord, totalFat: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <Button
+                variant="ghost"
+                onClick={() => setShowAddForm(false)}
+                className="flex-1"
+              >
+                取消
+              </Button>
+              <Button
+                onClick={handleAddRecord}
+                className="flex-1"
+              >
+                保存记录
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SimpleDietLogPage;
+

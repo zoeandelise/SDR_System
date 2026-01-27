@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.SDR_System.diet.mapper.DietRecommendationMapper">
+    
+    <resultMap type="DietRecommendation" id="DietRecommendationResult">
+        <result property="recommendationId"    column="recommendation_id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="recommendationDate"    column="recommendation_date"    />
+        <result property="mealType"    column="meal_type"    />
+        <result property="targetCalories"    column="target_calories"    />
+        <result property="targetProtein"    column="target_protein"    />
+        <result property="targetFat"    column="target_fat"    />
+        <result property="targetCarbohydrate"    column="target_carbohydrate"    />
+        <result property="recommendedFoods"    column="recommended_foods"    />
+        <result property="reason"    column="recommendation_reason"    />
+        <result property="algorithmType"    column="algorithm_type"    />
+        <result property="score"    column="score"    />
+        <result property="status"    column="is_accepted"    />
+        <result property="createTime"    column="create_time"    />
+    </resultMap>
+
+    <sql id="selectDietRecommendationVo">
+        select recommendation_id, user_id, recommendation_date, meal_type, target_calories, target_protein, target_fat, target_carbohydrate, recommended_foods, recommendation_reason, algorithm_type, score, is_accepted, create_time from diet_recommendation
+    </sql>
+
+    <select id="selectDietRecommendationList" parameterType="DietRecommendation" resultMap="DietRecommendationResult">
+        <include refid="selectDietRecommendationVo"/>
+        <where>  
+            <if test="userId != null "> and user_id = #{userId}</if>
+            <if test="recommendationDate != null "> and recommendation_date = #{recommendationDate}</if>
+            <if test="mealType != null  and mealType != ''"> and meal_type = #{mealType}</if>
+            <if test="targetCalories != null "> and target_calories = #{targetCalories}</if>
+            <if test="targetProtein != null "> and target_protein = #{targetProtein}</if>
+            <if test="targetFat != null "> and target_fat = #{targetFat}</if>
+            <if test="targetCarbohydrate != null "> and target_carbohydrate = #{targetCarbohydrate}</if>
+            <if test="recommendedFoods != null  and recommendedFoods != ''"> and recommended_foods = #{recommendedFoods}</if>
+            <if test="reason != null  and reason != ''"> and recommendation_reason = #{reason}</if>
+            <if test="algorithmType != null  and algorithmType != ''"> and algorithm_type = #{algorithmType}</if>
+            <if test="score != null "> and score = #{score}</if>
+            <if test="status != null  and status != ''"> and is_accepted = #{status}</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectDietRecommendationByRecommendationId" parameterType="Long" resultMap="DietRecommendationResult">
+        <include refid="selectDietRecommendationVo"/>
+        where recommendation_id = #{recommendationId}
+    </select>
+
+    <select id="selectDietRecommendationByUserIdAndDate" resultMap="DietRecommendationResult">
+        <include refid="selectDietRecommendationVo"/>
+        where user_id = #{userId} and DATE(recommendation_date) = DATE(#{date})
+        order by create_time desc
+        limit 1
+    </select>
+
+    <select id="selectDietRecommendationsByUserIdAndDateRange" resultMap="DietRecommendationResult">
+        <include refid="selectDietRecommendationVo"/>
+        where user_id = #{userId} 
+        and DATE(recommendation_date) &gt;= DATE(#{startDate}) 
+        and DATE(recommendation_date) &lt;= DATE(#{endDate})
+        order by recommendation_date desc, create_time desc
+    </select>
+        
+    <insert id="insertDietRecommendation" parameterType="DietRecommendation" useGeneratedKeys="true" keyProperty="recommendationId">
+        insert into diet_recommendation
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="recommendationDate != null">recommendation_date,</if>
+            <if test="mealType != null and mealType != ''">meal_type,</if>
+            <if test="targetCalories != null">target_calories,</if>
+            <if test="targetProtein != null">target_protein,</if>
+            <if test="targetFat != null">target_fat,</if>
+            <if test="targetCarbohydrate != null">target_carbohydrate,</if>
+            <if test="recommendedFoods != null and recommendedFoods != ''">recommended_foods,</if>
+            <if test="reason != null and reason != ''">recommendation_reason,</if>
+            <if test="algorithmType != null and algorithmType != ''">algorithm_type,</if>
+            <if test="score != null">score,</if>
+            <if test="status != null and status != ''">is_accepted,</if>
+            <if test="createTime != null">create_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="recommendationDate != null">#{recommendationDate},</if>
+            <if test="mealType != null and mealType != ''">#{mealType},</if>
+            <if test="targetCalories != null">#{targetCalories},</if>
+            <if test="targetProtein != null">#{targetProtein},</if>
+            <if test="targetFat != null">#{targetFat},</if>
+            <if test="targetCarbohydrate != null">#{targetCarbohydrate},</if>
+            <if test="recommendedFoods != null and recommendedFoods != ''">#{recommendedFoods},</if>
+            <if test="reason != null and reason != ''">#{reason},</if>
+            <if test="algorithmType != null and algorithmType != ''">#{algorithmType},</if>
+            <if test="score != null">#{score},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="createTime != null">#{createTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateDietRecommendation" parameterType="DietRecommendation">
+        update diet_recommendation
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="recommendationDate != null">recommendation_date = #{recommendationDate},</if>
+            <if test="mealType != null and mealType != ''">meal_type = #{mealType},</if>
+            <if test="targetCalories != null">target_calories = #{targetCalories},</if>
+            <if test="targetProtein != null">target_protein = #{targetProtein},</if>
+            <if test="targetFat != null">target_fat = #{targetFat},</if>
+            <if test="targetCarbohydrate != null">target_carbohydrate = #{targetCarbohydrate},</if>
+            <if test="recommendedFoods != null and recommendedFoods != ''">recommended_foods = #{recommendedFoods},</if>
+            <if test="reason != null and reason != ''">recommendation_reason = #{reason},</if>
+            <if test="algorithmType != null and algorithmType != ''">algorithm_type = #{algorithmType},</if>
+            <if test="score != null">score = #{score},</if>
+            <if test="status != null and status != ''">is_accepted = #{status},</if>
+        </trim>
+        where recommendation_id = #{recommendationId}
+    </update>
+
+    <update id="updateDietRecommendationStatus">
+        update diet_recommendation set is_accepted = #{status} where recommendation_id = #{recommendationId}
+    </update>
+
+    <delete id="deleteDietRecommendationByRecommendationId" parameterType="Long">
+        delete from diet_recommendation where recommendation_id = #{recommendationId}
+    </delete>
+
+    <delete id="deleteDietRecommendationByRecommendationIds" parameterType="String">
+        delete from diet_recommendation where recommendation_id in 
+        <foreach item="recommendationId" collection="array" open="(" separator="," close=")">
+            #{recommendationId}
+        </foreach>
+    </delete>
+</mapper>

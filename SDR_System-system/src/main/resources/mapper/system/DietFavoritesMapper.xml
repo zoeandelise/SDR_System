@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.SDR_System.system.mapper.DietFavoritesMapper">
+    
+    <resultMap type="DietFavorites" id="DietFavoritesResult">
+        <result property="favoriteId"    column="favorite_id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="favoriteType"    column="favorite_type"    />
+        <result property="targetId"    column="target_id"    />
+        <result property="targetName"    column="target_name"    />
+        <result property="targetDescription"    column="target_description"    />
+        <result property="targetImage"    column="target_image"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="remark"    column="remark"    />
+        <result property="userName"    column="user_name"    />
+    </resultMap>
+
+    <sql id="selectDietFavoritesVo">
+        select f.favorite_id, f.user_id, f.favorite_type, f.target_id, f.target_name, f.target_description, f.target_image, f.create_time, f.create_by, f.update_time, f.update_by, f.remark, u.user_name
+        from diet_favorites f
+        left join sys_user u on f.user_id = u.user_id
+    </sql>
+
+    <select id="selectDietFavoritesList" parameterType="DietFavorites" resultMap="DietFavoritesResult">
+        <include refid="selectDietFavoritesVo"/>
+        <where>  
+            <if test="userId != null "> and f.user_id = #{userId}</if>
+            <if test="favoriteType != null  and favoriteType != ''"> and f.favorite_type = #{favoriteType}</if>
+            <if test="targetId != null "> and f.target_id = #{targetId}</if>
+            <if test="targetName != null  and targetName != ''"> and f.target_name like concat('%', #{targetName}, '%')</if>
+        </where>
+        order by f.create_time desc
+    </select>
+    
+    <select id="selectDietFavoritesByFavoriteId" parameterType="Long" resultMap="DietFavoritesResult">
+        <include refid="selectDietFavoritesVo"/>
+        where f.favorite_id = #{favoriteId}
+    </select>
+
+    <select id="selectDietFavoritesByUserIdAndType" resultMap="DietFavoritesResult">
+        <include refid="selectDietFavoritesVo"/>
+        where f.user_id = #{userId}
+        <if test="favoriteType != null and favoriteType != ''">
+            and f.favorite_type = #{favoriteType}
+        </if>
+        order by f.create_time desc
+    </select>
+
+    <select id="selectDietFavoritesByUserIdAndTypeAndTargetId" resultMap="DietFavoritesResult">
+        <include refid="selectDietFavoritesVo"/>
+        where f.user_id = #{userId} and f.favorite_type = #{favoriteType} and f.target_id = #{targetId}
+        limit 1
+    </select>
+
+    <select id="countDietFavoritesByUserId" resultType="int">
+        select count(*) from diet_favorites 
+        where user_id = #{userId}
+        <if test="favoriteType != null and favoriteType != ''">
+            and favorite_type = #{favoriteType}
+        </if>
+    </select>
+        
+    <insert id="insertDietFavorites" parameterType="DietFavorites" useGeneratedKeys="true" keyProperty="favoriteId">
+        insert into diet_favorites
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="favoriteType != null and favoriteType != ''">favorite_type,</if>
+            <if test="targetId != null">target_id,</if>
+            <if test="targetName != null and targetName != ''">target_name,</if>
+            <if test="targetDescription != null">target_description,</if>
+            <if test="targetImage != null">target_image,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="favoriteType != null and favoriteType != ''">#{favoriteType},</if>
+            <if test="targetId != null">#{targetId},</if>
+            <if test="targetName != null and targetName != ''">#{targetName},</if>
+            <if test="targetDescription != null">#{targetDescription},</if>
+            <if test="targetImage != null">#{targetImage},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateDietFavorites" parameterType="DietFavorites">
+        update diet_favorites
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="favoriteType != null and favoriteType != ''">favorite_type = #{favoriteType},</if>
+            <if test="targetId != null">target_id = #{targetId},</if>
+            <if test="targetName != null and targetName != ''">target_name = #{targetName},</if>
+            <if test="targetDescription != null">target_description = #{targetDescription},</if>
+            <if test="targetImage != null">target_image = #{targetImage},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where favorite_id = #{favoriteId}
+    </update>
+
+    <delete id="deleteDietFavoritesByFavoriteId" parameterType="Long">
+        delete from diet_favorites where favorite_id = #{favoriteId}
+    </delete>
+
+    <delete id="deleteDietFavoritesByFavoriteIds" parameterType="String">
+        delete from diet_favorites where favorite_id in 
+        <foreach item="favoriteId" collection="array" open="(" separator="," close=")">
+            #{favoriteId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteDietFavoritesByUserIdAndTypeAndTargetId">
+        delete from diet_favorites 
+        where user_id = #{userId} and favorite_type = #{favoriteType} and target_id = #{targetId}
+    </delete>
+</mapper>

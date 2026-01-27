@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.SDR_System.diet.mapper.DietGoalMapper">
+    
+    <resultMap type="DietGoal" id="DietGoalResult">
+        <result property="goalId"    column="goal_id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="goalType"    column="goal_type"    />
+        <result property="goalName"    column="goal_name"    />
+        <result property="description"    column="description"    />
+        <result property="targetValue"    column="target_value"    />
+        <result property="currentValue"    column="current_value"    />
+        <result property="unit"    column="unit"    />
+        <result property="startDate"    column="start_date"    />
+        <result property="targetDate"    column="target_date"    />
+        <result property="status"    column="status"    />
+        <result property="priority"    column="priority"    />
+        <result property="completionPercentage"    column="completion_percentage"    />
+        <result property="reminderSettings"    column="reminder_settings"    />
+        <result property="rewardMechanism"    column="reward_mechanism"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"    column="remark"    />
+    </resultMap>
+
+    <sql id="selectDietGoalVo">
+        select goal_id, user_id, goal_type, goal_name, description, target_value, current_value, unit, start_date, target_date, status, priority, completion_percentage, reminder_settings, reward_mechanism, create_by, create_time, update_by, update_time, remark from diet_goal
+    </sql>
+
+    <select id="selectDietGoalList" parameterType="DietGoal" resultMap="DietGoalResult">
+        <include refid="selectDietGoalVo"/>
+        <where>  
+            <if test="userId != null "> and user_id = #{userId}</if>
+            <if test="goalType != null  and goalType != ''"> and goal_type = #{goalType}</if>
+            <if test="goalName != null  and goalName != ''"> and goal_name like concat('%', #{goalName}, '%')</if>
+            <if test="description != null  and description != ''"> and description = #{description}</if>
+            <if test="targetValue != null "> and target_value = #{targetValue}</if>
+            <if test="currentValue != null "> and current_value = #{currentValue}</if>
+            <if test="unit != null  and unit != ''"> and unit = #{unit}</if>
+            <if test="startDate != null "> and start_date = #{startDate}</if>
+            <if test="targetDate != null "> and target_date = #{targetDate}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="priority != null  and priority != ''"> and priority = #{priority}</if>
+            <if test="completionPercentage != null "> and completion_percentage = #{completionPercentage}</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectDietGoalByGoalId" parameterType="Long" resultMap="DietGoalResult">
+        <include refid="selectDietGoalVo"/>
+        where goal_id = #{goalId}
+    </select>
+
+    <select id="selectGoalStatsByUserId" parameterType="Long" resultMap="DietGoalResult">
+        <include refid="selectDietGoalVo"/>
+        where user_id = #{userId}
+        order by create_time desc
+    </select>
+
+    <select id="selectSoonExpireGoals" resultMap="DietGoalResult">
+        <include refid="selectDietGoalVo"/>
+        where user_id = #{userId} 
+        and status = '0'
+        and target_date is not null
+        and DATEDIFF(target_date, CURDATE()) &lt;= #{days}
+        and DATEDIFF(target_date, CURDATE()) &gt;= 0
+        order by target_date asc
+    </select>
+        
+    <insert id="insertDietGoal" parameterType="DietGoal" useGeneratedKeys="true" keyProperty="goalId">
+        insert into diet_goal
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="goalType != null and goalType != ''">goal_type,</if>
+            <if test="goalName != null and goalName != ''">goal_name,</if>
+            <if test="description != null">description,</if>
+            <if test="targetValue != null">target_value,</if>
+            <if test="currentValue != null">current_value,</if>
+            <if test="unit != null">unit,</if>
+            <if test="startDate != null">start_date,</if>
+            <if test="targetDate != null">target_date,</if>
+            <if test="status != null">status,</if>
+            <if test="priority != null">priority,</if>
+            <if test="completionPercentage != null">completion_percentage,</if>
+            <if test="reminderSettings != null">reminder_settings,</if>
+            <if test="rewardMechanism != null">reward_mechanism,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="goalType != null and goalType != ''">#{goalType},</if>
+            <if test="goalName != null and goalName != ''">#{goalName},</if>
+            <if test="description != null">#{description},</if>
+            <if test="targetValue != null">#{targetValue},</if>
+            <if test="currentValue != null">#{currentValue},</if>
+            <if test="unit != null">#{unit},</if>
+            <if test="startDate != null">#{startDate},</if>
+            <if test="targetDate != null">#{targetDate},</if>
+            <if test="status != null">#{status},</if>
+            <if test="priority != null">#{priority},</if>
+            <if test="completionPercentage != null">#{completionPercentage},</if>
+            <if test="reminderSettings != null">#{reminderSettings},</if>
+            <if test="rewardMechanism != null">#{rewardMechanism},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateDietGoal" parameterType="DietGoal">
+        update diet_goal
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="goalType != null and goalType != ''">goal_type = #{goalType},</if>
+            <if test="goalName != null and goalName != ''">goal_name = #{goalName},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="targetValue != null">target_value = #{targetValue},</if>
+            <if test="currentValue != null">current_value = #{currentValue},</if>
+            <if test="unit != null">unit = #{unit},</if>
+            <if test="startDate != null">start_date = #{startDate},</if>
+            <if test="targetDate != null">target_date = #{targetDate},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="priority != null">priority = #{priority},</if>
+            <if test="completionPercentage != null">completion_percentage = #{completionPercentage},</if>
+            <if test="reminderSettings != null">reminder_settings = #{reminderSettings},</if>
+            <if test="rewardMechanism != null">reward_mechanism = #{rewardMechanism},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where goal_id = #{goalId}
+    </update>
+
+    <update id="updateGoalProgress">
+        update diet_goal 
+        set current_value = #{currentValue}, 
+            completion_percentage = #{completionPercentage}, 
+            update_time = now() 
+        where goal_id = #{goalId}
+    </update>
+
+    <update id="updateGoalStatus">
+        update diet_goal set status = #{status}, update_time = now() where goal_id = #{goalId}
+    </update>
+
+    <delete id="deleteDietGoalByGoalId" parameterType="Long">
+        delete from diet_goal where goal_id = #{goalId}
+    </delete>
+
+    <delete id="deleteDietGoalByGoalIds" parameterType="String">
+        delete from diet_goal where goal_id in 
+        <foreach item="goalId" collection="array" open="(" separator="," close=")">
+            #{goalId}
+        </foreach>
+    </delete>
+</mapper>

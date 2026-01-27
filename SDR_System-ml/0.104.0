@@ -1,0 +1,39 @@
+Collecting fastapi
+  Using cached fastapi-0.124.0-py3-none-any.whl.metadata (30 kB)
+Collecting starlette<0.51.0,>=0.40.0 (from fastapi)
+  Downloading starlette-0.50.0-py3-none-any.whl.metadata (6.3 kB)
+Collecting pydantic!=1.8,!=1.8.1,!=2.0.0,!=2.0.1,!=2.1.0,<3.0.0,>=1.7.4 (from fastapi)
+  Using cached pydantic-2.12.5-py3-none-any.whl.metadata (90 kB)
+Collecting typing-extensions>=4.8.0 (from fastapi)
+  Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting annotated-doc>=0.0.2 (from fastapi)
+  Downloading annotated_doc-0.0.4-py3-none-any.whl.metadata (6.6 kB)
+Collecting annotated-types>=0.6.0 (from pydantic!=1.8,!=1.8.1,!=2.0.0,!=2.0.1,!=2.1.0,<3.0.0,>=1.7.4->fastapi)
+  Using cached annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.41.5 (from pydantic!=1.8,!=1.8.1,!=2.0.0,!=2.0.1,!=2.1.0,<3.0.0,>=1.7.4->fastapi)
+  Downloading pydantic_core-2.41.5-cp311-cp311-win_amd64.whl.metadata (7.4 kB)
+Collecting typing-inspection>=0.4.2 (from pydantic!=1.8,!=1.8.1,!=2.0.0,!=2.0.1,!=2.1.0,<3.0.0,>=1.7.4->fastapi)
+  Downloading typing_inspection-0.4.2-py3-none-any.whl.metadata (2.6 kB)
+Collecting anyio<5,>=3.6.2 (from starlette<0.51.0,>=0.40.0->fastapi)
+  Downloading anyio-4.12.0-py3-none-any.whl.metadata (4.3 kB)
+Collecting idna>=2.8 (from anyio<5,>=3.6.2->starlette<0.51.0,>=0.40.0->fastapi)
+  Downloading idna-3.11-py3-none-any.whl.metadata (8.4 kB)
+Downloading fastapi-0.124.0-py3-none-any.whl (112 kB)
+   -------------------------------------- 112.5/112.5 kB 818.1 kB/s eta 0:00:00
+Downloading annotated_doc-0.0.4-py3-none-any.whl (5.3 kB)
+Downloading pydantic-2.12.5-py3-none-any.whl (463 kB)
+   ---------------------------------------- 463.6/463.6 kB 2.6 MB/s eta 0:00:00
+Downloading pydantic_core-2.41.5-cp311-cp311-win_amd64.whl (2.0 MB)
+   ---------------------------------------- 2.0/2.0 MB 14.2 MB/s eta 0:00:00
+Downloading starlette-0.50.0-py3-none-any.whl (74 kB)
+   ---------------------------------------- 74.0/74.0 kB ? eta 0:00:00
+Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+   ---------------------------------------- 44.6/44.6 kB ? eta 0:00:00
+Using cached annotated_types-0.7.0-py3-none-any.whl (13 kB)
+Downloading anyio-4.12.0-py3-none-any.whl (113 kB)
+   ---------------------------------------- 113.4/113.4 kB 6.4 MB/s eta 0:00:00
+Downloading typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+Downloading idna-3.11-py3-none-any.whl (71 kB)
+   ---------------------------------------- 71.0/71.0 kB ? eta 0:00:00
+Installing collected packages: typing-extensions, idna, annotated-types, annotated-doc, typing-inspection, pydantic-core, anyio, starlette, pydantic, fastapi
+Successfully installed annotated-doc-0.0.4 annotated-types-0.7.0 anyio-4.12.0 fastapi-0.124.0 idna-3.11 pydantic-2.12.5 pydantic-core-2.41.5 starlette-0.50.0 typing-extensions-4.15.0 typing-inspection-0.4.2

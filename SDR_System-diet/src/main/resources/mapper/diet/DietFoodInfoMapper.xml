@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.SDR_System.diet.mapper.DietFoodInfoMapper">
+    
+    <resultMap type="com.SDR_System.system.domain.DietFoodInfo" id="DietFoodInfoResult">
+        <result property="foodId"    column="food_id"    />
+        <result property="foodName"    column="food_name"    />
+        <result property="foodCode"    column="food_code"    />
+        <result property="categoryId"    column="category_id"    />
+        <result property="brand"    column="brand"    />
+        <result property="description"    column="description"    />
+        <result property="imageUrl"    column="image_url"    />
+        <result property="unit"    column="unit"    />
+        <result property="standardWeight"    column="standard_weight"    />
+        <result property="status"    column="status"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"    column="remark"    />
+        <result property="categoryName"    column="category_name"    />
+        <result property="category"    column="category_id"    />
+        <result property="caloriesPer100g"    column="calories_per_100g"    />
+        <result property="proteinPer100g"    column="protein_per_100g"    />
+        <result property="fatPer100g"    column="fat_per_100g"    />
+        <result property="carbohydratePer100g"    column="carbohydrate_per_100g"    />
+        <result property="fiberPer100g"    column="fiber_per_100g"    />
+    </resultMap>
+
+    <sql id="selectDietFoodInfoVo">
+        select f.food_id, f.food_name, f.food_code, f.category_id, f.brand, f.description, 
+               f.image_url, f.unit, f.standard_weight, 
+               n.calories as calories_per_100g, n.protein as protein_per_100g,
+               n.fat as fat_per_100g, n.carbohydrate as carbohydrate_per_100g, 
+               n.fiber as fiber_per_100g, f.status, 
+               f.create_by, f.create_time, f.update_by, f.update_time, f.remark, c.category_name
+        from diet_food_info f
+        left join diet_food_category c on f.category_id = c.category_id
+        left join diet_food_nutrition n on f.food_id = n.food_id
+    </sql>
+
+    <select id="selectDietFoodInfoList" parameterType="com.SDR_System.system.domain.DietFoodInfo" resultMap="DietFoodInfoResult">
+        <include refid="selectDietFoodInfoVo"/>
+        <where>  
+            <if test="foodName != null  and foodName != ''"> and f.food_name like concat('%', #{foodName}, '%')</if>
+            <if test="foodCode != null  and foodCode != ''"> and f.food_code = #{foodCode}</if>
+            <if test="categoryId != null "> and f.category_id = #{categoryId}</if>
+            <if test="brand != null  and brand != ''"> and f.brand like concat('%', #{brand}, '%')</if>
+            <if test="status != null  and status != ''"> and f.status = #{status}</if>
+        </where>
+        order by f.create_time desc
+    </select>
+    
+    <select id="selectDietFoodInfoByFoodId" parameterType="Long" resultMap="DietFoodInfoResult">
+        <include refid="selectDietFoodInfoVo"/>
+        where f.food_id = #{foodId}
+    </select>
+        
+    <insert id="insertDietFoodInfo" parameterType="com.SDR_System.system.domain.DietFoodInfo" useGeneratedKeys="true" keyProperty="foodId">
+        insert into diet_food_info
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="foodName != null and foodName != ''">food_name,</if>
+            <if test="foodCode != null">food_code,</if>
+            <if test="categoryId != null">category_id,</if>
+            <if test="brand != null">brand,</if>
+            <if test="description != null">description,</if>
+            <if test="imageUrl != null">image_url,</if>
+            <if test="unit != null">unit,</if>
+            <if test="standardWeight != null">standard_weight,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="foodName != null and foodName != ''">#{foodName},</if>
+            <if test="foodCode != null">#{foodCode},</if>
+            <if test="categoryId != null">#{categoryId},</if>
+            <if test="brand != null">#{brand},</if>
+            <if test="description != null">#{description},</if>
+            <if test="imageUrl != null">#{imageUrl},</if>
+            <if test="unit != null">#{unit},</if>
+            <if test="standardWeight != null">#{standardWeight},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateDietFoodInfo" parameterType="com.SDR_System.system.domain.DietFoodInfo">
+        update diet_food_info
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="foodName != null and foodName != ''">food_name = #{foodName},</if>
+            <if test="foodCode != null">food_code = #{foodCode},</if>
+            <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="brand != null">brand = #{brand},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="imageUrl != null">image_url = #{imageUrl},</if>
+            <if test="unit != null">unit = #{unit},</if>
+            <if test="standardWeight != null">standard_weight = #{standardWeight},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where food_id = #{foodId}
+    </update>
+
+    <delete id="deleteDietFoodInfoByFoodId" parameterType="Long">
+        delete from diet_food_info where food_id = #{foodId}
+    </delete>
+
+    <delete id="deleteDietFoodInfoByFoodIds" parameterType="String">
+        delete from diet_food_info where food_id in 
+        <foreach item="foodId" collection="array" open="(" separator="," close=")">
+            #{foodId}
+        </foreach>
+    </delete>
+
+    <select id="selectDietFoodInfoByName" parameterType="String" resultMap="DietFoodInfoResult">
+        <include refid="selectDietFoodInfoVo"/>
+        where f.food_name like concat('%', #{foodName}, '%') and f.status = '0'
+        order by f.food_name
+    </select>
+
+    <select id="selectDietFoodInfoByCategoryId" parameterType="Long" resultMap="DietFoodInfoResult">
+        <include refid="selectDietFoodInfoVo"/>
+        where f.category_id = #{categoryId} and f.status = '0'
+        order by f.food_name
+    </select>
+
+</mapper>

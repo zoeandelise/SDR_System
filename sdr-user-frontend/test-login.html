@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试登录API</title>
+</head>
+<body>
+    <h1>测试登录API</h1>
+    <button onclick="testLogin()">测试登录</button>
+    <div id="result"></div>
+
+    <script>
+        async function testLogin() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '测试中...';
+            
+            try {
+                console.log('开始测试登录API...');
+                
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (response.ok && data.code === 200) {
+                    resultDiv.innerHTML = `<div style="color: green;">
+                        <h3>✅ 登录成功!</h3>
+                        <p><strong>Token:</strong> ${data.token ? data.token.substring(0, 50) + '...' : '无'}</p>
+                        <p><strong>消息:</strong> ${data.msg}</p>
+                        <p><strong>状态码:</strong> ${data.code}</p>
+                    </div>`;
+                } else {
+                    resultDiv.innerHTML = `<div style="color: red;">
+                        <h3>❌ 登录失败</h3>
+                        <p><strong>HTTP状态:</strong> ${response.status}</p>
+                        <p><strong>错误消息:</strong> ${data.msg || '未知错误'}</p>
+                        <p><strong>返回数据:</strong> ${JSON.stringify(data, null, 2)}</p>
+                    </div>`;
+                }
+            } catch (error) {
+                console.error('请求失败:', error);
+                resultDiv.innerHTML = `<div style="color: red;">
+                    <h3>❌ 网络错误</h3>
+                    <p><strong>错误类型:</strong> ${error.name}</p>
+                    <p><strong>错误消息:</strong> ${error.message}</p>
+                    <p><strong>详细信息:</strong> ${error.toString()}</p>
+                </div>`;
+            }
+        }
+    </script>
+</body>
+</html>

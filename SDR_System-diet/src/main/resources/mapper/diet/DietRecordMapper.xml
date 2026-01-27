@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.SDR_System.diet.mapper.DietRecordMapper">
+    
+    <resultMap type="com.SDR_System.system.domain.DietRecord" id="DietRecordResult">
+        <result property="recordId"    column="record_id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="recordDate"    column="record_date"    />
+        <result property="mealType"    column="meal_type"    />
+        <result property="totalCalories"    column="total_calories"    />
+        <result property="totalProtein"    column="total_protein"    />
+        <result property="totalFat"    column="total_fat"    />
+        <result property="totalCarbohydrate"    column="total_carbohydrate"    />
+        <result property="mongoDocId"    column="mongo_doc_id"    />
+        <result property="imageUrls"    column="image_urls"    />
+        <result property="notes"    column="notes"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="userName"    column="user_name"    />
+    </resultMap>
+
+    <sql id="selectDietRecordVo">
+        select r.record_id, r.user_id, r.record_date, r.meal_type, r.total_calories, 
+               r.total_protein, r.total_fat, r.total_carbohydrate, r.mongo_doc_id, 
+               r.image_urls, r.notes, r.create_time, r.update_time, u.user_name
+        from diet_record r
+        left join sys_user u on r.user_id = u.user_id
+    </sql>
+
+    <select id="selectDietRecordList" parameterType="com.SDR_System.system.domain.DietRecord" resultMap="DietRecordResult">
+        <include refid="selectDietRecordVo"/>
+        <where>  
+            <if test="userName != null and userName != ''">
+                and (u.user_name like concat('%', #{userName}, '%') or CAST(r.user_id AS CHAR) like concat('%', #{userName}, '%'))
+            </if>
+            <if test="userId != null "> and r.user_id = #{userId}</if>
+            <if test="recordDate != null "> and date_format(r.record_date,'%y-%m-%d') = date_format(#{recordDate},'%y-%m-%d')</if>
+            <if test="mealType != null  and mealType != ''"> and r.meal_type = #{mealType}</if>
+        </where>
+        order by r.record_date desc, r.meal_type asc
+    </select>
+    
+    <select id="selectDietRecordByRecordId" parameterType="Long" resultMap="DietRecordResult">
+        <include refid="selectDietRecordVo"/>
+        where r.record_id = #{recordId}
+    </select>
+        
+    <insert id="insertDietRecord" parameterType="com.SDR_System.system.domain.DietRecord" useGeneratedKeys="true" keyProperty="recordId">
+        insert into diet_record
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="recordDate != null">record_date,</if>
+            <if test="mealType != null and mealType != ''">meal_type,</if>
+            <if test="totalCalories != null">total_calories,</if>
+            <if test="totalProtein != null">total_protein,</if>
+            <if test="totalFat != null">total_fat,</if>
+            <if test="totalCarbohydrate != null">total_carbohydrate,</if>
+            <if test="mongoDocId != null">mongo_doc_id,</if>
+            <if test="imageUrls != null">image_urls,</if>
+            <if test="notes != null">notes,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="recordDate != null">#{recordDate},</if>
+            <if test="mealType != null and mealType != ''">#{mealType},</if>
+            <if test="totalCalories != null">#{totalCalories},</if>
+            <if test="totalProtein != null">#{totalProtein},</if>
+            <if test="totalFat != null">#{totalFat},</if>
+            <if test="totalCarbohydrate != null">#{totalCarbohydrate},</if>
+            <if test="mongoDocId != null">#{mongoDocId},</if>
+            <if test="imageUrls != null">#{imageUrls},</if>
+            <if test="notes != null">#{notes},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateDietRecord" parameterType="com.SDR_System.system.domain.DietRecord">
+        update diet_record
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="recordDate != null">record_date = #{recordDate},</if>
+            <if test="mealType != null and mealType != ''">meal_type = #{mealType},</if>
+            <if test="totalCalories != null">total_calories = #{totalCalories},</if>
+            <if test="totalProtein != null">total_protein = #{totalProtein},</if>
+            <if test="totalFat != null">total_fat = #{totalFat},</if>
+            <if test="totalCarbohydrate != null">total_carbohydrate = #{totalCarbohydrate},</if>
+            <if test="mongoDocId != null">mongo_doc_id = #{mongoDocId},</if>
+            <if test="imageUrls != null">image_urls = #{imageUrls},</if>
+            <if test="notes != null">notes = #{notes},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where record_id = #{recordId}
+    </update>
+
+    <delete id="deleteDietRecordByRecordId" parameterType="Long">
+        delete from diet_record where record_id = #{recordId}
+    </delete>
+
+    <delete id="deleteDietRecordByRecordIds" parameterType="String">
+        delete from diet_record where record_id in 
+        <foreach item="recordId" collection="array" open="(" separator="," close=")">
+            #{recordId}
+        </foreach>
+    </delete>
+
+    <select id="selectDietRecordsByUserIdAndDateRange" resultMap="DietRecordResult">
+        <include refid="selectDietRecordVo"/>
+        where r.user_id = #{userId} 
+        and r.record_date between #{startDate} and #{endDate}
+        order by r.record_date desc, r.meal_type asc
+    </select>
+
+    <select id="selectDietRecordsByUserIdAndDate" resultMap="DietRecordResult">
+        <include refid="selectDietRecordVo"/>
+        where r.user_id = #{userId} 
+        and date_format(r.record_date,'%Y-%m-%d') = date_format(#{recordDate},'%Y-%m-%d')
+        order by r.meal_type asc
+    </select>
+
+    <select id="selectNutritionSummaryByUserIdAndDateRange" resultMap="DietRecordResult">
+        select 
+            #{userId} as user_id,
+            sum(r.total_calories) as total_calories,
+            sum(r.total_protein) as total_protein,
+            sum(r.total_fat) as total_fat,
+            sum(r.total_carbohydrate) as total_carbohydrate
+        from diet_record r
+        where r.user_id = #{userId} 
+        and r.record_date between #{startDate} and #{endDate}
+    </select>
+
+</mapper>

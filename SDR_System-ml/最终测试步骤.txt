@@ -1,0 +1,66 @@
+最终测试步骤 - 已修复logger问题
+=====================================
+
+问题发现：
+logger在后台线程中不工作，已全部改用print输出
+
+测试步骤：
+=========
+
+1. 停止ML服务（Ctrl+C）
+
+2. 重新启动
+   cd E:\study\BISHE\SDR_System\SDR_System-ml
+   python main_service.py
+
+3. 启动训练
+
+4. 观察日志
+
+期望看到的完整日志流程：
+========================
+
+[DEBUG] train_model_task 被调用: content_based, 180, xxx
+[DEBUG] 进入try块
+🚀 开始训练任务: content_based
+📊 training_id = xxx (类型: <class 'int'>)
+📊 training_days = 180
+训练进度 [content_based]: 5% - 初始化训练环境...
+训练进度 [content_based]: 10% - 加载训练数据...
+训练进度 [content_based]: 20% - 数据预处理中...
+训练进度 [content_based]: 30% - 特征工程处理...
+训练进度 [content_based]: 45% - 训练content_based模型...
+训练进度 [content_based]: 65% - 模型优化中...
+训练进度 [content_based]: 80% - 模型验证中...
+训练进度 [content_based]: 90% - 模型评估中...
+执行实际模型训练: content_based
+调用 model_manager.train_model(content_based, 180)
+训练进度 [content_based]: 95% - 模型训练和保存中...
+开始训练基于内容的推荐模型...  (来自content_based.py)
+✅ 基于内容的推荐模型训练完成
+✅ 基于内容的推荐模型已保存到: ./models/trained\content_based_model.pkl
+训练返回结果: {'success': True, 'performance': {...}, ...}  ← 关键！
+✅ 模型训练成功: content_based (准确率: 0.7500)
+📊 训练任务状态已更新: progress=100%, status=completed
+📝 准备更新数据库: training_id=xxx
+✅ 数据库状态已更新为completed
+
+前端应该显示：
+=============
+- 进度: 0% → 5% → 10% → ... → 90% → 95% → 100%
+- 状态: "训练中" → "已完成"
+- 已完成: 2/2
+- 可以点击"完成并关闭"按钮
+
+如果仍有问题：
+=============
+检查是否看到 "训练返回结果" 这行日志
+- 如果看到且success=True，但前端仍显示不是100%
+  → 检查数据库更新是否成功
+  → 检查前端轮询的API返回值
+
+- 如果看到但success=False
+  → 检查返回结果中的错误信息
+
+- 如果没看到这行日志
+  → model_manager.train_model() 可能被阻塞或崩溃

@@ -1,0 +1,132 @@
+{
+  "system": {
+    "name": "智能饮食推荐系统",
+    "version": "1.0.0",
+    "description": "基于机器学习的个性化健康饮食推荐平台"
+  },
+  "services": {
+    "backend": {
+      "name": "后端服务",
+      "url": "http://localhost:8080",
+      "port": 8080,
+      "framework": "Spring Boot",
+      "database": {
+        "mysql": "localhost:3306",
+        "mongodb": "localhost:27017",
+        "neo4j": "localhost:7687"
+      }
+    },
+    "admin_frontend": {
+      "name": "管理员前端",
+      "url": "http://localhost:81",
+      "port": 81,
+      "framework": "Vue 2 + Element UI",
+      "proxy_target": "http://localhost:8080"
+    },
+    "user_frontend": {
+      "name": "用户端前端",
+      "url": "http://localhost:3000",
+      "port": 3000,
+      "framework": "React + TypeScript",
+      "proxy_target": "http://localhost:8080"
+    },
+    "ml_service": {
+      "name": "机器学习服务",
+      "url": "http://localhost:8001",
+      "port": 8001,
+      "framework": "Python FastAPI",
+      "models": [
+        "collaborative_filtering",
+        "content_based",
+        "deep_learning",
+        "hybrid_recommender"
+      ]
+    }
+  },
+  "api_endpoints": {
+    "admin": {
+      "base_path": "/api/admin",
+      "auth_required": true,
+      "permissions": ["admin", "manager"]
+    },
+    "user": {
+      "base_path": "/api/user",
+      "auth_required": true,
+      "permissions": ["user"]
+    },
+    "public": {
+      "base_path": "/api/public",
+      "auth_required": false,
+      "permissions": []
+    },
+    "ml": {
+      "base_path": "/api/ml",
+      "auth_required": true,
+      "permissions": ["system"]
+    }
+  },
+  "features": {
+    "user_features": [
+      "用户注册登录",
+      "个人资料管理",
+      "饮食记录管理",
+      "营养分析报告",
+      "个性化推荐",
+      "目标设置跟踪",
+      "AI食物识别",
+      "健康趋势分析"
+    ],
+    "admin_features": [
+      "用户管理",
+      "食物数据库管理",
+      "系统配置管理",
+      "数据统计分析",
+      "推荐算法管理",
+      "系统监控",
+      "日志管理",
+      "权限管理"
+    ]
+  },
+  "integration": {
+    "cors": {
+      "enabled": true,
+      "origins": [
+        "http://localhost:3000",
+        "http://localhost:81"
+      ],
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "headers": ["Authorization", "Content-Type"]
+    },
+    "security": {
+      "jwt_enabled": true,
+      "session_timeout": 7200,
+      "password_policy": {
+        "min_length": 8,
+        "require_uppercase": true,
+        "require_numbers": true,
+        "require_special_chars": false
+      }
+    },
+    "data_sync": {
+      "real_time": true,
+      "batch_interval": 300,
+      "cache_enabled": true,
+      "cache_ttl": 3600
+    }
+  },
+  "monitoring": {
+    "health_check": {
+      "enabled": true,
+      "interval": 30,
+      "endpoints": [
+        "http://localhost:8080/actuator/health",
+        "http://localhost:8001/health"
+      ]
+    },
+    "logging": {
+      "level": "INFO",
+      "file_enabled": true,
+      "console_enabled": true
+    }
+  }
+}

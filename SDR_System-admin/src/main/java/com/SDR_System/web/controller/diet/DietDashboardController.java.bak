@@ -1,0 +1,594 @@
+package com.SDR_System.web.controller.diet;
+
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Date;
+import java.util.Calendar;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.SimpleDateFormat;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
+import com.SDR_System.common.core.controller.BaseController;
+import com.SDR_System.common.core.domain.AjaxResult;
+import com.SDR_System.common.utils.SecurityUtils;
+import com.SDR_System.common.utils.DateUtils;
+import com.SDR_System.system.domain.DietRecord;
+import com.SDR_System.diet.domain.DietGoal;
+import com.SDR_System.diet.domain.DietRecommendation;
+import com.SDR_System.diet.service.IDietRecordService;
+import com.SDR_System.diet.service.IDietGoalService;
+import com.SDR_System.diet.service.IDietRecommendationService;
+
+/**
+ * 饮食仪表盘Controller
+ * 
+ * @author SDR_System
+ * @date 2025-01-22
+ */
+@RestController
+@RequestMapping("/diet/dashboard")
+public class DietDashboardController extends BaseController
+{
+    @Autowired
+    private IDietRecordService dietRecordService;
+    
+    @Autowired
+    private IDietGoalService dietGoalService;
+    
+    @Autowired
+    private IDietRecommendationService dietRecommendationService;
+
+    /**
+     * 获取今日概览数据
+     */
+    @GetMapping("/today-overview")
+    public AjaxResult getTodayOverview(@RequestParam(required = false) Long userId)
+    {
+        try {
+            // 权限控制：非管理员只能查看自己的数据
+            if (userId == null) {
+                userId = SecurityUtils.getUserId();
+            } else if (!SecurityUtils.isAdmin(SecurityUtils.getUserId()) && !SecurityUtils.getUserId().equals(userId)) {
+                return error("无权限访问其他用户的数据");
+            }
+
+            // 获取今日日期
+            Date today = DateUtils.parseDate(DateUtils.getDate());
+            
+            // 获取今日饮食记录
+            List<DietRecord> todayRecords = dietRecordService.selectDietRecordsByUserIdAndDate(userId, today);
+            
+            // 计算今日总营养摄入
+            BigDecimal actualCalories = BigDecimal.ZERO;
+            BigDecimal actualProtein = BigDecimal.ZERO;
+            BigDecimal actualFat = BigDecimal.ZERO;
+            BigDecimal actualCarbohydrate = BigDecimal.ZERO;
+            
+            for (DietRecord record : todayRecords) {
+                if (record.getTotalCalories() != null) {
+                    actualCalories = actualCalories.add(record.getTotalCalories());
+                }
+                if (record.getTotalProtein() != null) {
+                    actualProtein = actualProtein.add(record.getTotalProtein());
+                }
+                if (record.getTotalFat() != null) {
+                    actualFat = actualFat.add(record.getTotalFat());
+                }
+                if (record.getTotalCarbohydrate() != null) {
+                    actualCarbohydrate = actualCarbohydrate.add(record.getTotalCarbohydrate());
+                }
+            }
+            
+            // 获取用户目标（这里可以从用户设置或健康目标中获取，暂时使用默认值）
+            BigDecimal targetCalories = new BigDecimal("2000");
+            BigDecimal targetProtein = new BigDecimal("150");
+            BigDecimal targetFat = new BigDecimal("67");
+            BigDecimal targetCarbohydrate = new BigDecimal("250");
+            
+            // 尝试从用户的健康目标中获取目标值
+            DietGoal goalQuery = new DietGoal();
+            goalQuery.setUserId(userId);
+            goalQuery.setStatus("0"); // 进行中的目标
+            List<DietGoal> activeGoals = dietGoalService.selectDietGoalList(goalQuery);
+            
+            for (DietGoal goal : activeGoals) {
+                if ("热量".equals(goal.getGoalType()) && goal.getTargetValue() != null) {
+                    targetCalories = goal.getTargetValue();
+                }
+            }
+
+            Map<String, Object> todayData = new HashMap<>();
+            todayData.put("targetCalories", targetCalories);
+            todayData.put("actualCalories", actualCalories);
+            todayData.put("targetProtein", targetProtein);
+            todayData.put("actualProtein", actualProtein);
+            todayData.put("targetFat", targetFat);
+            todayData.put("actualFat", actualFat);
+            todayData.put("targetCarbohydrate", targetCarbohydrate);
+            todayData.put("actualCarbohydrate", actualCarbohydrate);
+            todayData.put("recordCount", todayRecords.size());
+            todayData.put("date", today);
+            
+            // 计算百分比
+            double calorieProgress = targetCalories.compareTo(BigDecimal.ZERO) > 0 ? 
+                actualCalories.divide(targetCalories, 4, RoundingMode.HALF_UP).multiply(new BigDecimal("100")).doubleValue() : 0.0;
+            todayData.put("calorieProgress", Math.min(100.0, calorieProgress));
+            
+            return success(todayData);
+        } catch (Exception e) {
+            logger.error("获取今日概览数据失败", e);
+            return error("获取今日概览数据失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取今日餐次记录
+     */
+    @GetMapping("/today-meals")
+    public AjaxResult getTodayMeals(@RequestParam(required = false) Long userId)
+    {
+        try {
+            // 权限控制
+            if (userId == null) {
+                userId = SecurityUtils.getUserId();
+            } else if (!SecurityUtils.isAdmin(SecurityUtils.getUserId()) && !SecurityUtils.getUserId().equals(userId)) {
+                return error("无权限访问其他用户的数据");
+            }
+
+            // 获取今日日期
+            Date today = DateUtils.parseDate(DateUtils.getDate());
+            
+            // 获取今日饮食记录
+            List<DietRecord> todayRecords = dietRecordService.selectDietRecordsByUserIdAndDate(userId, today);
+            
+            // 按餐次分组
+            Map<String, List<DietRecord>> mealGroups = new HashMap<>();
+            mealGroups.put("0", new java.util.ArrayList<>()); // 早餐
+            mealGroups.put("1", new java.util.ArrayList<>()); // 午餐
+            mealGroups.put("2", new java.util.ArrayList<>()); // 晚餐
+            mealGroups.put("3", new java.util.ArrayList<>()); // 加餐
+            
+            for (DietRecord record : todayRecords) {
+                String mealType = record.getMealType();
+                if (mealGroups.containsKey(mealType)) {
+                    mealGroups.get(mealType).add(record);
+                }
+            }
+            
+            // 构建餐次数据
+            List<Map<String, Object>> mealRecords = new java.util.ArrayList<>();
+            String[] mealTypes = {"0", "1", "2", "3"};
+            String[] mealNames = {"早餐", "午餐", "晚餐", "加餐"};
+            
+            for (int i = 0; i < mealTypes.length; i++) {
+                String mealType = mealTypes[i];
+                List<DietRecord> records = mealGroups.get(mealType);
+                
+                Map<String, Object> mealData = new HashMap<>();
+                mealData.put("mealType", mealType);
+                mealData.put("mealName", mealNames[i]);
+                
+                if (records.isEmpty()) {
+                    mealData.put("totalCalories", 0);
+                    mealData.put("totalProtein", 0);
+                    mealData.put("totalFat", 0);
+                    mealData.put("totalCarbohydrate", 0);
+                    mealData.put("foods", new java.util.ArrayList<>());
+                } else {
+                    // 计算总营养
+                    BigDecimal totalCalories = BigDecimal.ZERO;
+                    BigDecimal totalProtein = BigDecimal.ZERO;
+                    BigDecimal totalFat = BigDecimal.ZERO;
+                    BigDecimal totalCarbohydrate = BigDecimal.ZERO;
+                    List<Map<String, Object>> foods = new java.util.ArrayList<>();
+                    
+                    for (DietRecord record : records) {
+                        if (record.getTotalCalories() != null) {
+                            totalCalories = totalCalories.add(record.getTotalCalories());
+                        }
+                        if (record.getTotalProtein() != null) {
+                            totalProtein = totalProtein.add(record.getTotalProtein());
+                        }
+                        if (record.getTotalFat() != null) {
+                            totalFat = totalFat.add(record.getTotalFat());
+                        }
+                        if (record.getTotalCarbohydrate() != null) {
+                            totalCarbohydrate = totalCarbohydrate.add(record.getTotalCarbohydrate());
+                        }
+                        
+                        // 添加食物信息（简化处理）
+                        Map<String, Object> food = new HashMap<>();
+                        food.put("foodId", record.getRecordId());
+                        food.put("foodName", record.getNotes() != null ? record.getNotes() : "饮食记录");
+                        foods.add(food);
+                    }
+                    
+                    mealData.put("totalCalories", totalCalories);
+                    mealData.put("totalProtein", totalProtein);
+                    mealData.put("totalFat", totalFat);
+                    mealData.put("totalCarbohydrate", totalCarbohydrate);
+                    mealData.put("foods", foods);
+                }
+                
+                mealRecords.add(mealData);
+            }
+            
+            return success(mealRecords);
+        } catch (Exception e) {
+            logger.error("获取今日餐次记录失败", e);
+            return error("获取餐次记录失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取热量趋势数据
+     */
+    @GetMapping("/calorie-trend")
+    public AjaxResult getCalorieTrend(
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @RequestParam(required = false) Long userId)
+    {
+        try {
+            // 权限控制
+            if (userId == null) {
+                userId = SecurityUtils.getUserId();
+            } else if (!SecurityUtils.isAdmin(SecurityUtils.getUserId()) && !SecurityUtils.getUserId().equals(userId)) {
+                return error("无权限访问其他用户的数据");
+            }
+
+            // 默认查询最近7天
+            if (startDate == null || endDate == null) {
+                Calendar cal = Calendar.getInstance();
+                endDate = cal.getTime();
+                cal.add(Calendar.DAY_OF_MONTH, -6);
+                startDate = cal.getTime();
+            }
+            
+            // 获取指定日期范围的记录
+            List<DietRecord> records = dietRecordService.selectDietRecordsByUserIdAndDateRange(userId, startDate, endDate);
+            
+            // 按日期分组统计
+            Map<String, BigDecimal> dailyCalories = new HashMap<>();
+            Map<String, BigDecimal> dailyProtein = new HashMap<>();
+            Map<String, BigDecimal> dailyFat = new HashMap<>();
+            Map<String, BigDecimal> dailyCarbohydrate = new HashMap<>();
+            
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            
+            // 初始化所有日期为0
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(startDate);
+            while (!cal.getTime().after(endDate)) {
+                String dateStr = sdf.format(cal.getTime());
+                dailyCalories.put(dateStr, BigDecimal.ZERO);
+                dailyProtein.put(dateStr, BigDecimal.ZERO);
+                dailyFat.put(dateStr, BigDecimal.ZERO);
+                dailyCarbohydrate.put(dateStr, BigDecimal.ZERO);
+                cal.add(Calendar.DAY_OF_MONTH, 1);
+            }
+            
+            // 累加实际记录
+            for (DietRecord record : records) {
+                String dateStr = sdf.format(record.getRecordDate());
+                if (dailyCalories.containsKey(dateStr)) {
+                    if (record.getTotalCalories() != null) {
+                        dailyCalories.put(dateStr, dailyCalories.get(dateStr).add(record.getTotalCalories()));
+                    }
+                    if (record.getTotalProtein() != null) {
+                        dailyProtein.put(dateStr, dailyProtein.get(dateStr).add(record.getTotalProtein()));
+                    }
+                    if (record.getTotalFat() != null) {
+                        dailyFat.put(dateStr, dailyFat.get(dateStr).add(record.getTotalFat()));
+                    }
+                    if (record.getTotalCarbohydrate() != null) {
+                        dailyCarbohydrate.put(dateStr, dailyCarbohydrate.get(dateStr).add(record.getTotalCarbohydrate()));
+                    }
+                }
+            }
+            
+            // 构建趋势数据
+            List<Map<String, Object>> trendData = new java.util.ArrayList<>();
+            cal.setTime(startDate);
+            while (!cal.getTime().after(endDate)) {
+                String dateStr = sdf.format(cal.getTime());
+                Map<String, Object> dayData = new HashMap<>();
+                dayData.put("date", dateStr);
+                dayData.put("calories", dailyCalories.get(dateStr));
+                dayData.put("protein", dailyProtein.get(dateStr));
+                dayData.put("fat", dailyFat.get(dateStr));
+                dayData.put("carbohydrate", dailyCarbohydrate.get(dateStr));
+                trendData.add(dayData);
+                cal.add(Calendar.DAY_OF_MONTH, 1);
+            }
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("trendData", trendData);
+            result.put("startDate", startDate);
+            result.put("endDate", endDate);
+            
+            return success(result);
+        } catch (Exception e) {
+            logger.error("获取热量趋势数据失败", e);
+            return error("获取趋势数据失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取营养分布数据
+     */
+    @GetMapping("/nutrition-distribution")
+    public AjaxResult getNutritionDistribution(
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date date,
+            @RequestParam(required = false) Long userId)
+    {
+        try {
+            // 权限控制
+            if (userId == null) {
+                userId = SecurityUtils.getUserId();
+            } else if (!SecurityUtils.isAdmin(SecurityUtils.getUserId()) && !SecurityUtils.getUserId().equals(userId)) {
+                return error("无权限访问其他用户的数据");
+            }
+
+            // 默认查询今日
+            if (date == null) {
+                date = DateUtils.parseDate(DateUtils.getDate());
+            }
+            
+            // 获取指定日期的记录
+            List<DietRecord> records = dietRecordService.selectDietRecordsByUserIdAndDate(userId, date);
+            
+            // 计算总营养
+            BigDecimal totalProtein = BigDecimal.ZERO;
+            BigDecimal totalFat = BigDecimal.ZERO;
+            BigDecimal totalCarbohydrate = BigDecimal.ZERO;
+            BigDecimal totalCalories = BigDecimal.ZERO;
+            
+            for (DietRecord record : records) {
+                if (record.getTotalProtein() != null) {
+                    totalProtein = totalProtein.add(record.getTotalProtein());
+                }
+                if (record.getTotalFat() != null) {
+                    totalFat = totalFat.add(record.getTotalFat());
+                }
+                if (record.getTotalCarbohydrate() != null) {
+                    totalCarbohydrate = totalCarbohydrate.add(record.getTotalCarbohydrate());
+                }
+                if (record.getTotalCalories() != null) {
+                    totalCalories = totalCalories.add(record.getTotalCalories());
+                }
+            }
+            
+            // 构建营养分布数据
+            List<Map<String, Object>> nutritionData = new java.util.ArrayList<>();
+            
+            Map<String, Object> proteinData = new HashMap<>();
+            proteinData.put("name", "蛋白质");
+            proteinData.put("value", totalProtein);
+            proteinData.put("percentage", totalCalories.compareTo(BigDecimal.ZERO) > 0 ? 
+                totalProtein.multiply(new BigDecimal("4")).divide(totalCalories, 4, RoundingMode.HALF_UP).multiply(new BigDecimal("100")) : BigDecimal.ZERO);
+            proteinData.put("color", "#67C23A");
+            nutritionData.add(proteinData);
+            
+            Map<String, Object> fatData = new HashMap<>();
+            fatData.put("name", "脂肪");
+            fatData.put("value", totalFat);
+            fatData.put("percentage", totalCalories.compareTo(BigDecimal.ZERO) > 0 ? 
+                totalFat.multiply(new BigDecimal("9")).divide(totalCalories, 4, RoundingMode.HALF_UP).multiply(new BigDecimal("100")) : BigDecimal.ZERO);
+            fatData.put("color", "#E6A23C");
+            nutritionData.add(fatData);
+            
+            Map<String, Object> carbData = new HashMap<>();
+            carbData.put("name", "碳水化合物");
+            carbData.put("value", totalCarbohydrate);
+            carbData.put("percentage", totalCalories.compareTo(BigDecimal.ZERO) > 0 ? 
+                totalCarbohydrate.multiply(new BigDecimal("4")).divide(totalCalories, 4, RoundingMode.HALF_UP).multiply(new BigDecimal("100")) : BigDecimal.ZERO);
+            carbData.put("color", "#409EFF");
+            nutritionData.add(carbData);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("nutritionData", nutritionData);
+            result.put("totalCalories", totalCalories);
+            result.put("date", date);
+            
+            return success(result);
+        } catch (Exception e) {
+            logger.error("获取营养分布数据失败", e);
+            return error("获取营养分布数据失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取仪表盘快速统计
+     */
+    @GetMapping("/quick-stats")
+    public AjaxResult getQuickStats(@RequestParam(required = false) Long userId)
+    {
+        try {
+            // 权限控制
+            if (userId == null) {
+                userId = SecurityUtils.getUserId();
+            } else if (!SecurityUtils.isAdmin(SecurityUtils.getUserId()) && !SecurityUtils.getUserId().equals(userId)) {
+                return error("无权限访问其他用户的数据");
+            }
+
+            Map<String, Object> stats = new HashMap<>();
+            
+            // 本周记录数
+            Calendar cal = Calendar.getInstance();
+            Date endDate = cal.getTime();
+            cal.add(Calendar.DAY_OF_WEEK, -7);
+            Date startDate = cal.getTime();
+            
+            List<DietRecord> weekRecords = dietRecordService.selectDietRecordsByUserIdAndDateRange(userId, startDate, endDate);
+            stats.put("weekRecordsCount", weekRecords.size());
+            
+            // 本月记录数
+            cal.setTime(new Date());
+            cal.set(Calendar.DAY_OF_MONTH, 1);
+            Date monthStart = cal.getTime();
+            cal.add(Calendar.MONTH, 1);
+            cal.add(Calendar.DAY_OF_MONTH, -1);
+            Date monthEnd = cal.getTime();
+            
+            List<DietRecord> monthRecords = dietRecordService.selectDietRecordsByUserIdAndDateRange(userId, monthStart, monthEnd);
+            stats.put("monthRecordsCount", monthRecords.size());
+            
+            // 活跃目标数
+            DietGoal goalQuery = new DietGoal();
+            goalQuery.setUserId(userId);
+            goalQuery.setStatus("0");
+            List<DietGoal> activeGoals = dietGoalService.selectDietGoalList(goalQuery);
+            stats.put("activeGoalsCount", activeGoals.size());
+            
+            // 本周推荐数
+            DietRecommendation recQuery = new DietRecommendation();
+            recQuery.setUserId(userId);
+            List<DietRecommendation> recommendations = dietRecommendationService.selectDietRecommendationList(recQuery);
+            long weekRecommendations = recommendations.stream()
+                .filter(rec -> {
+                    if (rec.getRecommendationDate() == null) return false;
+                    long daysDiff = (new Date().getTime() - rec.getRecommendationDate().getTime()) / (24 * 60 * 60 * 1000);
+                    return daysDiff <= 7;
+                })
+                .count();
+            stats.put("weekRecommendationsCount", weekRecommendations);
+            
+            return success(stats);
+        } catch (Exception e) {
+            logger.error("获取快速统计数据失败", e);
+            return error("获取统计数据失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取用户健康目标进度
+     */
+    @GetMapping("/goal-progress")
+    public AjaxResult getGoalProgress(@RequestParam(required = false) Long userId)
+    {
+        try {
+            // 权限控制
+            if (userId == null) {
+                userId = SecurityUtils.getUserId();
+            } else if (!SecurityUtils.isAdmin(SecurityUtils.getUserId()) && !SecurityUtils.getUserId().equals(userId)) {
+                return error("无权限访问其他用户的数据");
+            }
+
+            // 获取用户的活跃目标
+            DietGoal goalQuery = new DietGoal();
+            goalQuery.setUserId(userId);
+            goalQuery.setStatus("0"); // 进行中
+            List<DietGoal> activeGoals = dietGoalService.selectDietGoalList(goalQuery);
+            
+            List<Map<String, Object>> goalProgress = new java.util.ArrayList<>();
+            
+            for (DietGoal goal : activeGoals) {
+                Map<String, Object> progress = new HashMap<>();
+                progress.put("goalId", goal.getGoalId());
+                progress.put("goalName", goal.getGoalName());
+                progress.put("goalType", goal.getGoalType());
+                progress.put("targetValue", goal.getTargetValue());
+                progress.put("currentValue", goal.getCurrentValue());
+                progress.put("unit", goal.getUnit());
+                progress.put("startDate", goal.getStartDate());
+                progress.put("targetDate", goal.getTargetDate());
+                
+                // 计算完成百分比
+                double completionPercentage = 0.0;
+                if (goal.getTargetValue() != null && goal.getTargetValue().compareTo(BigDecimal.ZERO) > 0) {
+                    completionPercentage = goal.getCurrentValue() != null ? 
+                        goal.getCurrentValue().divide(goal.getTargetValue(), 4, RoundingMode.HALF_UP).multiply(new BigDecimal("100")).doubleValue() : 0.0;
+                }
+                progress.put("completionPercentage", Math.min(100.0, completionPercentage));
+                
+                // 计算剩余天数
+                if (goal.getTargetDate() != null) {
+                    long daysDiff = (goal.getTargetDate().getTime() - new Date().getTime()) / (24 * 60 * 60 * 1000);
+                    progress.put("remainingDays", Math.max(0, daysDiff));
+                }
+                
+                goalProgress.add(progress);
+            }
+            
+            return success(goalProgress);
+        } catch (Exception e) {
+            logger.error("获取目标进度失败", e);
+            return error("获取目标进度失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 生成快速推荐
+     */
+    @PostMapping("/quick-recommendation")
+    public AjaxResult generateQuickRecommendation(@RequestParam(required = false) Long userId)
+    {
+        try {
+            // 权限控制（只能为自己生成推荐，管理员可以为任何用户生成）
+            if (userId == null) {
+                userId = SecurityUtils.getUserId();
+            } else if (!SecurityUtils.isAdmin(SecurityUtils.getUserId()) && !SecurityUtils.getUserId().equals(userId)) {
+                return error("无权限为其他用户生成推荐");
+            }
+
+            // 生成今日推荐
+            DietRecommendation recommendation = dietRecommendationService.generateDailyRecommendation(userId, new Date());
+            
+            if (recommendation != null) {
+                return success(recommendation);
+            } else {
+                return error("生成推荐失败，请稍后重试");
+            }
+        } catch (Exception e) {
+            logger.error("生成快速推荐失败", e);
+            return error("生成推荐失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取最近推荐列表
+     */
+    @GetMapping("/recent-recommendations")
+    public AjaxResult getRecentRecommendations(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(defaultValue = "5") Integer limit)
+    {
+        try {
+            // 权限控制
+            if (userId == null) {
+                userId = SecurityUtils.getUserId();
+            } else if (!SecurityUtils.isAdmin(SecurityUtils.getUserId()) && !SecurityUtils.getUserId().equals(userId)) {
+                return error("无权限访问其他用户的数据");
+            }
+
+            // 获取最近的推荐
+            DietRecommendation query = new DietRecommendation();
+            query.setUserId(userId);
+            List<DietRecommendation> recommendations = dietRecommendationService.selectDietRecommendationList(query);
+            
+            // 限制返回数量并按时间排序
+            List<DietRecommendation> recentRecommendations = recommendations.stream()
+                .sorted((r1, r2) -> {
+                    if (r1.getRecommendationDate() == null && r2.getRecommendationDate() == null) return 0;
+                    if (r1.getRecommendationDate() == null) return 1;
+                    if (r2.getRecommendationDate() == null) return -1;
+                    return r2.getRecommendationDate().compareTo(r1.getRecommendationDate());
+                })
+                .limit(limit)
+                .collect(java.util.stream.Collectors.toList());
+            
+            return success(recentRecommendations);
+        } catch (Exception e) {
+            logger.error("获取最近推荐失败", e);
+            return error("获取最近推荐失败：" + e.getMessage());
+        }
+    }
+}

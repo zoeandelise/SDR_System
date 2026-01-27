@@ -1,0 +1,35 @@
+# Continue.dev 配置文件 - 使用你的 Gemini 代理端点
+# 日期: 2025-12-18
+
+name: My Gemini Config
+version: 1.0.0
+schema: v1
+
+# 定义可用的模型
+models:
+  - name: gemini-3-flash-preview[真流-GG公益]
+    provider: openai               # 因为你的端点兼容 OpenAI 格式
+    model: gemini-3-flash-preview[真流-GG公益]          # 常用模型名，大多数代理都支持
+    apiBase: https://gemini.beijixingxing.com/v1
+    apiKey: sk-QI2KavfTh6irnNzth1ufmM9O9SNb5vg3lSzUECjIxq3XPvoz
+    # 可选：如果你想让它更快、更便宜，可以再加一个 Flash 版本用于自动补全
+  - name: gemini-3-flash-preview[真流-GG公益]
+    provider: openai
+    model: gemini-3-flash-preview[真流-GG公益]
+    apiBase: https://gemini.beijixingxing.com/v1
+    apiKey: sk-QI2KavfTh6irnNzth1ufmM9O9SNb5vg3lSzUECjIxq3XPvoz
+
+# 设置代码自动补全使用的模型（推荐用更快的 Flash 版本）
+tabAutocompleteModel:
+  name: gemini-3-flash-preview[真流-GG公益]
+
+
+
+# 如果你还想保留其他模型（如本地 Ollama 或 Claude），可以继续添加
+# 示例（可选）：
+#  - uses: ollama/qwen2.5-coder-7b
+#  - uses: anthropic/claude-4-sonnet
+#    with:
+#      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+# MCP Servers（一般用不到，先留空或删除）

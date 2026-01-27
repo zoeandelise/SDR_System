@@ -1,0 +1,375 @@
+package com.SDR_System.web.controller.diet;
+
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Date;
+import javax.servlet.http.HttpServletResponse;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
+import com.SDR_System.common.annotation.Log;
+import com.SDR_System.common.core.controller.BaseController;
+import com.SDR_System.common.core.domain.AjaxResult;
+import com.SDR_System.common.core.domain.entity.SysUser;
+import com.SDR_System.common.enums.BusinessType;
+import com.SDR_System.common.utils.poi.ExcelUtil;
+import com.SDR_System.common.core.page.TableDataInfo;
+import com.SDR_System.system.domain.DietRecord;
+import com.SDR_System.diet.domain.DietGoal;
+import com.SDR_System.diet.domain.DietRecommendation;
+import com.SDR_System.diet.service.IDietRecordService;
+import com.SDR_System.diet.service.IDietGoalService;
+import com.SDR_System.diet.service.IDietRecommendationService;
+import com.SDR_System.system.service.ISysUserService;
+
+/**
+ * 管理员饮食数据管理Controller
+ * 
+ * @author SDR_System
+ * @date 2025-01-22
+ */
+@RestController
+@RequestMapping("/admin/diet")
+public class AdminDietDataController extends BaseController
+{
+    @Autowired
+    private IDietRecordService dietRecordService;
+    
+    @Autowired
+    private IDietGoalService dietGoalService;
+    
+    @Autowired
+    private IDietRecommendationService dietRecommendationService;
+    
+    @Autowired
+    private ISysUserService userService;
+
+    /**
+     * 获取所有用户饮食记录概览（仅管理员）
+     */
+    @PreAuthorize("@ss.hasRole('admin')")
+    @GetMapping("/records/overview")
+    public AjaxResult getAllUsersRecordsOverview(
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate)
+    {
+        try {
+            Map<String, Object> result = new HashMap<>();
+            
+            // 获取所有活跃用户列表
+            SysUser userQuery = new SysUser();
+            userQuery.setStatus("0"); // 正常状态
+            List<SysUser> users = userService.selectUserList(userQuery);
+            
+            // 统计数据
+            Map<String, Object> statistics = new HashMap<>();
+            statistics.put("totalUsers", users.size());
+            statistics.put("activeUsersToday", 0);
+            statistics.put("totalRecordsToday", 0);
+            statistics.put("avgCaloriesPerUser", 0.0);
+            
+            // 用户饮食数据概览
+            List<Map<String, Object>> userOverviews = new java.util.ArrayList<>();
+            
+            for (SysUser user : users) {
+                Map<String, Object> userOverview = new HashMap<>();
+                userOverview.put("userId", user.getUserId());
+                userOverview.put("userName", user.getUserName());
+                userOverview.put("nickName", user.getNickName());
+                userOverview.put("email", user.getEmail());
+                userOverview.put("phonenumber", user.getPhonenumber());
+                userOverview.put("sex", user.getSex());
+                userOverview.put("status", user.getStatus());
+                userOverview.put("loginDate", user.getLoginDate());
+                
+                // 获取用户的饮食统计数据
+                List<DietRecord> userRecords = dietRecordService.selectDietRecordsByUserIdAndDateRange(
+                    user.getUserId(), startDate, endDate);
+                
+                userOverview.put("recordCount", userRecords.size());
+                userOverview.put("lastRecordDate", userRecords.isEmpty() ? null : 
+                    userRecords.get(userRecords.size() - 1).getRecordDate());
+                
+                // 计算平均热量
+                double avgCalories = userRecords.stream()
+                    .mapToDouble(record -> record.getTotalCalories() != null ? 
+                        record.getTotalCalories().doubleValue() : 0.0)
+                    .average()
+                    .orElse(0.0);
+                userOverview.put("avgCalories", avgCalories);
+                
+                userOverviews.add(userOverview);
+                
+                // 更新统计数据
+                if (!userRecords.isEmpty()) {
+                    statistics.put("activeUsersToday", (Integer)statistics.get("activeUsersToday") + 1);
+                    statistics.put("totalRecordsToday", (Integer)statistics.get("totalRecordsToday") + userRecords.size());
+                }
+            }
+            
+            // 计算平均热量
+            double totalAvgCalories = userOverviews.stream()
+                .mapToDouble(overview -> (Double)overview.get("avgCalories"))
+                .average()
+                .orElse(0.0);
+            statistics.put("avgCaloriesPerUser", totalAvgCalories);
+            
+            result.put("statistics", statistics);
+            result.put("users", userOverviews);
+            
+            return success(result);
+        } catch (Exception e) {
+            logger.error("获取用户饮食记录概览失败", e);
+            return error("获取数据失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取指定用户的详细饮食记录（仅管理员）
+     */
+    @PreAuthorize("@ss.hasRole('admin')")
+    @GetMapping("/records/user/{userId}")
+    public TableDataInfo getUserDietRecords(
+            @PathVariable("userId") Long userId,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            DietRecord dietRecord)
+    {
+        startPage();
+        
+        // 强制设置用户ID
+        dietRecord.setUserId(userId);
+        
+        List<DietRecord> list;
+        if (startDate != null && endDate != null) {
+            list = dietRecordService.selectDietRecordsByUserIdAndDateRange(userId, startDate, endDate);
+        } else {
+            list = dietRecordService.selectDietRecordList(dietRecord);
+        }
+        
+        return getDataTable(list);
+    }
+
+    /**
+     * 获取指定用户的健康目标（仅管理员）
+     */
+    @PreAuthorize("@ss.hasRole('admin')")
+    @GetMapping("/goals/user/{userId}")
+    public TableDataInfo getUserDietGoals(@PathVariable("userId") Long userId)
+    {
+        startPage();
+        DietGoal goalQuery = new DietGoal();
+        goalQuery.setUserId(userId);
+        List<DietGoal> list = dietGoalService.selectDietGoalList(goalQuery);
+        return getDataTable(list);
+    }
+
+    /**
+     * 获取指定用户的推荐记录（仅管理员）
+     */
+    @PreAuthorize("@ss.hasRole('admin')")
+    @GetMapping("/recommendations/user/{userId}")
+    public TableDataInfo getUserRecommendations(@PathVariable("userId") Long userId)
+    {
+        startPage();
+        DietRecommendation recQuery = new DietRecommendation();
+        recQuery.setUserId(userId);
+        List<DietRecommendation> list = dietRecommendationService.selectDietRecommendationList(recQuery);
+        return getDataTable(list);
+    }
+
+    /**
+     * 获取用户健康画像详情（仅管理员）
+     */
+    @PreAuthorize("@ss.hasRole('admin')")
+    @GetMapping("/profile/user/{userId}")
+    public AjaxResult getUserProfile(@PathVariable("userId") Long userId)
+    {
+        try {
+            // 获取用户基本信息
+            SysUser user = userService.selectUserById(userId);
+            if (user == null) {
+                return error("用户不存在");
+            }
+
+            Map<String, Object> profile = new HashMap<>();
+            profile.put("userId", user.getUserId());
+            profile.put("userName", user.getUserName());
+            profile.put("nickName", user.getNickName());
+            profile.put("email", user.getEmail());
+            profile.put("phonenumber", user.getPhonenumber());
+            profile.put("sex", user.getSex());
+            profile.put("status", user.getStatus());
+            profile.put("loginDate", user.getLoginDate());
+            profile.put("createTime", user.getCreateTime());
+
+            // 获取饮食统计数据
+            Date endDate = new Date();
+            Date startDate = new Date(endDate.getTime() - 30L * 24 * 60 * 60 * 1000); // 最近30天
+            
+            List<DietRecord> recentRecords = dietRecordService.selectDietRecordsByUserIdAndDateRange(
+                userId, startDate, endDate);
+            
+            profile.put("recentRecordsCount", recentRecords.size());
+            
+            // 计算平均营养摄入
+            if (!recentRecords.isEmpty()) {
+                double avgCalories = recentRecords.stream()
+                    .mapToDouble(record -> record.getTotalCalories() != null ? 
+                        record.getTotalCalories().doubleValue() : 0.0)
+                    .average().orElse(0.0);
+                double avgProtein = recentRecords.stream()
+                    .mapToDouble(record -> record.getTotalProtein() != null ? 
+                        record.getTotalProtein().doubleValue() : 0.0)
+                    .average().orElse(0.0);
+                double avgFat = recentRecords.stream()
+                    .mapToDouble(record -> record.getTotalFat() != null ? 
+                        record.getTotalFat().doubleValue() : 0.0)
+                    .average().orElse(0.0);
+                double avgCarbs = recentRecords.stream()
+                    .mapToDouble(record -> record.getTotalCarbohydrate() != null ? 
+                        record.getTotalCarbohydrate().doubleValue() : 0.0)
+                    .average().orElse(0.0);
+                
+                profile.put("avgCalories", avgCalories);
+                profile.put("avgProtein", avgProtein);
+                profile.put("avgFat", avgFat);
+                profile.put("avgCarbohydrate", avgCarbs);
+            }
+
+            // 获取健康目标
+            DietGoal goalQuery = new DietGoal();
+            goalQuery.setUserId(userId);
+            goalQuery.setStatus("0"); // 进行中的目标
+            List<DietGoal> activeGoals = dietGoalService.selectDietGoalList(goalQuery);
+            profile.put("activeGoals", activeGoals.size());
+            profile.put("goalsList", activeGoals);
+
+            return success(profile);
+        } catch (Exception e) {
+            logger.error("获取用户健康画像失败", e);
+            return error("获取用户画像失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 导出用户饮食数据（仅管理员）
+     */
+    @PreAuthorize("@ss.hasRole('admin')")
+    @Log(title = "管理员导出用户饮食数据", businessType = BusinessType.EXPORT)
+    @PostMapping("/export/user/{userId}")
+    public void exportUserDietData(HttpServletResponse response, 
+            @PathVariable("userId") Long userId,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate)
+    {
+        try {
+            // 获取用户信息
+            SysUser user = userService.selectUserById(userId);
+            String fileName = "用户饮食数据_" + (user != null ? user.getUserName() : userId);
+            
+            List<DietRecord> list;
+            if (startDate != null && endDate != null) {
+                list = dietRecordService.selectDietRecordsByUserIdAndDateRange(userId, startDate, endDate);
+            } else {
+                DietRecord query = new DietRecord();
+                query.setUserId(userId);
+                list = dietRecordService.selectDietRecordList(query);
+            }
+            
+            ExcelUtil<DietRecord> util = new ExcelUtil<DietRecord>(DietRecord.class);
+            util.exportExcel(response, list, fileName);
+        } catch (Exception e) {
+            logger.error("导出用户饮食数据失败", e);
+        }
+    }
+
+    /**
+     * 批量删除用户饮食记录（仅管理员）
+     */
+    @PreAuthorize("@ss.hasRole('admin')")
+    @Log(title = "管理员删除用户饮食记录", businessType = BusinessType.DELETE)
+    @DeleteMapping("/records/{recordIds}")
+    public AjaxResult remove(@PathVariable Long[] recordIds)
+    {
+        return toAjax(dietRecordService.deleteDietRecordByRecordIds(recordIds));
+    }
+
+    /**
+     * 获取系统饮食数据统计（仅管理员）
+     */
+    @PreAuthorize("@ss.hasRole('admin')")
+    @GetMapping("/statistics")
+    public AjaxResult getSystemStatistics()
+    {
+        try {
+            Map<String, Object> statistics = new HashMap<>();
+            
+            // 系统总体统计
+            SysUser userQuery = new SysUser();
+            userQuery.setStatus("0");
+            List<SysUser> allUsers = userService.selectUserList(userQuery);
+            statistics.put("totalUsers", allUsers.size());
+            
+            // 今日活跃用户数（有饮食记录的用户）
+            Date today = new Date();
+            Date todayStart = new Date(today.getTime() - today.getTime() % (24 * 60 * 60 * 1000));
+            
+            int activeUsersToday = 0;
+            int totalRecordsToday = 0;
+            
+            for (SysUser user : allUsers) {
+                List<DietRecord> todayRecords = dietRecordService.selectDietRecordsByUserIdAndDate(
+                    user.getUserId(), todayStart);
+                if (!todayRecords.isEmpty()) {
+                    activeUsersToday++;
+                    totalRecordsToday += todayRecords.size();
+                }
+            }
+            
+            statistics.put("activeUsersToday", activeUsersToday);
+            statistics.put("totalRecordsToday", totalRecordsToday);
+            statistics.put("userActivityRate", allUsers.size() > 0 ? 
+                (double)activeUsersToday / allUsers.size() * 100 : 0.0);
+            
+            // 最近7天的数据趋势
+            List<Map<String, Object>> weeklyTrend = new java.util.ArrayList<>();
+            for (int i = 6; i >= 0; i--) {
+                Date date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000L);
+                
+                int dayActiveUsers = 0;
+                int dayTotalRecords = 0;
+                
+                for (SysUser user : allUsers) {
+                    List<DietRecord> dayRecords = dietRecordService.selectDietRecordsByUserIdAndDate(
+                        user.getUserId(), date);
+                    if (!dayRecords.isEmpty()) {
+                        dayActiveUsers++;
+                        dayTotalRecords += dayRecords.size();
+                    }
+                }
+                
+                Map<String, Object> dayData = new HashMap<>();
+                dayData.put("date", date);
+                dayData.put("activeUsers", dayActiveUsers);
+                dayData.put("totalRecords", dayTotalRecords);
+                weeklyTrend.add(dayData);
+            }
+            
+            statistics.put("weeklyTrend", weeklyTrend);
+            
+            return success(statistics);
+        } catch (Exception e) {
+            logger.error("获取系统统计数据失败", e);
+            return error("获取统计数据失败：" + e.getMessage());
+        }
+    }
+}

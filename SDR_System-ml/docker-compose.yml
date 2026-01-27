@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  ml-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sdr-ml-service
+    ports:
+      - "8001:8001"
+    environment:
+      # 数据库配置
+      - MYSQL_HOST=host.docker.internal
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=password
+      - MYSQL_DATABASE=ry-vue
+      
+      # MongoDB配置
+      - MONGODB_HOST=host.docker.internal
+      - MONGODB_PORT=27017
+      - MONGODB_DATABASE=diet_system
+      
+      # Redis配置
+      - REDIS_HOST=host.docker.internal
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      
+      # ML配置
+      - ML_ENV=production
+      - DEBUG=false
+      - MODEL_PATH=/app/models/saved/
+      - CACHE_TTL=3600
+      
+      # 性能配置
+      - MAX_WORKERS=4
+      - REQUEST_TIMEOUT=30
+    volumes:
+      - ./models/saved:/app/models/saved
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - sdr-network
+
+  # Redis缓存服务（可选，如果没有外部Redis）
+  redis:
+    image: redis:7-alpine
+    container_name: sdr-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - sdr-network
+
+networks:
+  sdr-network:
+    driver: bridge
+
+volumes:
+  redis_data:

@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.SDR_System.diet.mapper.MLDataMapper">
+    
+    <!-- ======================== -->
+    <!-- 模型信息相关 -->
+    <!-- ======================== -->
+    
+    <select id="selectAllModels" resultType="java.util.Map">
+        SELECT 
+            model_id as modelId,
+            model_name as modelName,
+            model_type as modelType,
+            model_version as modelVersion,
+            is_loaded as isLoaded,
+            model_path as modelPath,
+            accuracy,
+            last_trained_time as lastTrainedTime,
+            training_data_size as trainingDataSize,
+            create_time as createTime,
+            update_time as updateTime
+        FROM ml_model_info
+        ORDER BY model_id
+    </select>
+    
+    <select id="selectModelByType" resultType="java.util.Map">
+        SELECT 
+            model_id as modelId,
+            model_name as modelName,
+            model_type as modelType,
+            model_version as modelVersion,
+            is_loaded as isLoaded,
+            model_path as modelPath,
+            accuracy,
+            last_trained_time as lastTrainedTime,
+            training_data_size as trainingDataSize
+        FROM ml_model_info
+        WHERE model_type = #{modelType}
+    </select>
+    
+    <update id="updateModelStatus">
+        UPDATE ml_model_info
+        SET is_loaded = #{isLoaded},
+            update_time = NOW()
+        WHERE model_type = #{modelType}
+    </update>
+    
+    <update id="updateModelTrainingInfo">
+        UPDATE ml_model_info
+        SET accuracy = #{accuracy},
+            last_trained_time = #{lastTrainedTime},
+            training_data_size = #{trainingDataSize},
+            update_time = NOW()
+        WHERE model_type = #{modelType}
+    </update>
+    
+    <!-- ======================== -->
+    <!-- 训练历史相关 -->
+    <!-- ======================== -->
+    
+    <insert id="insertTrainingHistory" parameterType="java.util.Map" useGeneratedKeys="true" keyProperty="trainingId">
+        INSERT INTO ml_training_history (
+            model_type,
+            training_status,
+            progress,
+            current_step,
+            start_time,
+            training_days,
+            data_size,
+            create_time
+        ) VALUES (
+            #{modelType},
+            #{trainingStatus},
+            #{progress},
+            #{currentStep},
+            #{startTime},
+            #{trainingDays},
+            #{dataSize},
+            NOW()
+        )
+    </insert>
+    
+    <update id="updateTrainingProgress">
+        UPDATE ml_training_history
+        SET progress = #{progress},
+            current_step = #{currentStep},
+            training_status = #{status},
+            elapsed_time = TIMESTAMPDIFF(SECOND, start_time, NOW())
+        WHERE training_id = #{trainingId}
+    </update>
+    
+    <update id="completeTraining">
+        UPDATE ml_training_history
+        SET training_status = #{status},
+            end_time = NOW(),
+            elapsed_time = TIMESTAMPDIFF(SECOND, start_time, NOW()),
+            accuracy = #{accuracy},
+            error_message = #{errorMessage},
+            progress = 100,
+            current_step = CASE WHEN #{status} = 'completed' THEN '训练完成' ELSE current_step END
+        WHERE training_id = #{trainingId}
+    </update>
+    
+    <select id="selectActiveTrainings" resultType="java.util.Map">
+        SELECT 
+            training_id as trainingId,
+            model_type as name,
+            model_type as modelType,
+            training_status as status,
+            training_status as trainingStatus,
+            progress,
+            current_step as currentStep,
+            start_time as startTime,
+            training_days as trainingDays,
+            TIMESTAMPDIFF(SECOND, start_time, NOW()) as elapsedTime
+        FROM ml_training_history
+        WHERE training_status IN ('pending', 'training', 'completed', 'failed')
+        AND start_time >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+        ORDER BY start_time DESC
+    </select>
+    
+    <select id="selectLatestTraining" resultType="java.util.Map">
+        SELECT 
+            training_id as trainingId,
+            model_type as modelType,
+            training_status as trainingStatus,
+            progress,
+            current_step as currentStep,
+            start_time as startTime,
+            end_time as endTime,
+            elapsed_time as elapsedTime,
+            accuracy,
+            error_message as errorMessage
+        FROM ml_training_history
+        WHERE model_type = #{modelType}
+        ORDER BY training_id DESC
+        LIMIT 1
+    </select>
+    
+    <select id="selectTrainingHistory" resultType="java.util.Map">
+        SELECT 
+            training_id as trainingId,
+            model_type as modelType,
+            training_status as trainingStatus,
+            progress,
+            start_time as startTime,
+            end_time as endTime,
+            elapsed_time as elapsedTime,
+            accuracy
+        FROM ml_training_history
+        <where>
+            <if test="modelType != null and modelType != ''">
+                AND model_type = #{modelType}
+            </if>
+        </where>
+        ORDER BY training_id DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+    
+    <!-- ======================== -->
+    <!-- 推荐统计相关 -->
+    <!-- ======================== -->
+    
+    <select id="aggregateRecommendationStats" resultType="java.util.Map">
+        -- 从diet_recommendation表直接统计真实数据（替换假数据）
+        SELECT 
+            CAST(COUNT(*) AS SIGNED) as totalRecommendations,
+            CAST(COUNT(CASE WHEN is_accepted = '1' THEN 1 END) AS SIGNED) as acceptedRecommendations,
+            ROUND(
+                COALESCE(
+                    COUNT(CASE WHEN is_accepted = '1' THEN 1 END) * 1.0 / 
+                    NULLIF(COUNT(CASE WHEN is_accepted IS NOT NULL AND is_accepted != '' THEN 1 END), 0),
+                    0
+                ), 
+                4
+            ) as acceptanceRate,
+            ROUND(COALESCE(AVG(score), 0), 2) as avgScore,
+            CAST(COUNT(DISTINCT user_id) AS SIGNED) as activeUsers,
+            CAST(ROUND(COALESCE(AVG(response_time), 75), 0) AS SIGNED) as avgResponseTime
+        FROM diet_recommendation
+        <where>
+            <if test="startDate != null">
+                AND recommendation_date &gt;= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND recommendation_date &lt;= #{endDate}
+            </if>
+        </where>
+    </select>
+    
+    <select id="aggregateStatsByAlgorithm" resultType="java.util.Map">
+        -- 从diet_recommendation表按算法类型统计真实数据
+        SELECT 
+            COALESCE(algorithm_type, 'rule_based') as algorithmType,
+            -- 准确率 = 接受率（基于真实反馈）
+            ROUND(
+                COALESCE(
+                    COUNT(CASE WHEN is_accepted = '1' THEN 1 END) * 1.0 / 
+                    NULLIF(COUNT(CASE WHEN is_accepted IS NOT NULL AND is_accepted != '' THEN 1 END), 0),
+                    0
+                ), 
+                4
+            ) as acceptanceRate,
+            -- 响应时间（ms）
+            CAST(ROUND(COALESCE(AVG(response_time), 75), 0) AS SIGNED) as avgResponseTime,
+            -- 推荐次数
+            CAST(COUNT(*) AS SIGNED) as totalRecommendations,
+            -- 平均评分
+            ROUND(COALESCE(AVG(score), 0), 2) as avgScore,
+            -- 使用占比
+            ROUND(
+                COUNT(*) * 100.0 / (
+                    SELECT COUNT(*) FROM diet_recommendation 
+                    WHERE recommendation_date BETWEEN #{startDate} AND #{endDate}
+                ), 
+                2
+            ) as `usage`,
+            -- 状态（固定为运行中）
+            'running' as status
+        FROM diet_recommendation
+        WHERE recommendation_date BETWEEN #{startDate} AND #{endDate}
+        GROUP BY COALESCE(algorithm_type, 'rule_based')
+        ORDER BY COUNT(*) DESC
+    </select>
+    
+    <insert id="upsertDailyStats" parameterType="java.util.Map">
+        INSERT INTO ml_recommendation_stats (
+            stat_date,
+            algorithm_type,
+            total_recommendations,
+            accepted_recommendations,
+            acceptance_rate,
+            avg_score,
+            avg_response_time,
+            active_users,
+            create_time
+        ) VALUES (
+            #{statDate},
+            #{algorithmType},
+            #{stats.totalRecommendations},
+            #{stats.acceptedRecommendations},
+            #{stats.acceptanceRate},
+            #{stats.avgScore},
+            #{stats.avgResponseTime},
+            #{stats.activeUsers},
+            NOW()
+        )
+        ON DUPLICATE KEY UPDATE
+            total_recommendations = VALUES(total_recommendations),
+            accepted_recommendations = VALUES(accepted_recommendations),
+            acceptance_rate = VALUES(acceptance_rate),
+            avg_score = VALUES(avg_score),
+            avg_response_time = VALUES(avg_response_time),
+            active_users = VALUES(active_users),
+            update_time = NOW()
+    </insert>
+    
+    <select id="aggregateYesterdayFromRecommendations" resultType="java.util.Map">
+        SELECT 
+            DATE(recommendation_date) as statDate,
+            COALESCE(algorithm_type, 'rule_based') as algorithmType,
+            COUNT(*) as totalRecommendations,
+            SUM(CASE WHEN is_accepted = '1' THEN 1 ELSE 0 END) as acceptedRecommendations,
+            ROUND(AVG(CASE WHEN is_accepted = '1' THEN 1.0 ELSE 0.0 END), 4) as acceptanceRate,
+            ROUND(AVG(score), 2) as avgScore,
+            ROUND(AVG(response_time), 0) as avgResponseTime,
+            COUNT(DISTINCT user_id) as activeUsers
+        FROM diet_recommendation
+        WHERE DATE(recommendation_date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+        GROUP BY DATE(recommendation_date), COALESCE(algorithm_type, 'rule_based')
+    </select>
+    
+    <!-- ======================== -->
+    <!-- 服务状态相关 -->
+    <!-- ======================== -->
+    
+    <select id="selectLatestServiceStatus" resultType="java.util.Map">
+        SELECT 
+            status_id as statusId,
+            service_status as serviceStatus,
+            data_loader_status as dataLoaderStatus,
+            user_profiling_status as userProfilingStatus,
+            recommender_status as recommenderStatus,
+            check_time as checkTime,
+            check_time as lastCheckTime,
+            response_time as responseTime,
+            error_message as errorMessage
+        FROM ml_service_status
+        ORDER BY check_time DESC
+        LIMIT 1
+    </select>
+    
+    <insert id="insertServiceStatus" parameterType="java.util.Map">
+        INSERT INTO ml_service_status (
+            service_status,
+            data_loader_status,
+            user_profiling_status,
+            recommender_status,
+            check_time,
+            response_time,
+            error_message
+        ) VALUES (
+            #{serviceStatus},
+            #{dataLoaderStatus},
+            #{userProfilingStatus},
+            #{recommenderStatus},
+            #{checkTime},
+            #{responseTime},
+            #{errorMessage}
+        )
+    </insert>
+    
+    <select id="selectRecentServiceStatus" resultType="java.util.Map">
+        SELECT 
+            status_id as statusId,
+            service_status as serviceStatus,
+            data_loader_status as dataLoaderStatus,
+            user_profiling_status as userProfilingStatus,
+            recommender_status as recommenderStatus,
+            check_time as checkTime,
+            response_time as responseTime
+        FROM ml_service_status
+        ORDER BY check_time DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+    
+</mapper>
