@@ -37,7 +37,7 @@ authApi.interceptors.response.use(
     } else if (res.code === 401) {
       // 未授权，清除token
       removeToken();
-      window.location.href = '/login';
+      window.location.href = '/auth/login';
       return Promise.reject(new Error(res.msg || '认证失败'));
     } else {
       return Promise.reject(new Error(res.msg || '请求失败'));
@@ -48,7 +48,7 @@ authApi.interceptors.response.use(
 
     if (error.response?.status === 401) {
       removeToken();
-      window.location.href = '/login';
+      window.location.href = '/auth/login';
     }
 
     return Promise.reject(error);
@@ -118,7 +118,7 @@ export const logout = async (): Promise<void> => {
   } finally {
     removeToken();
     localStorage.removeItem('userInfo');
-    window.location.href = '/login';
+    window.location.href = '/auth/login';
   }
 };
 

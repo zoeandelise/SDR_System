@@ -15,7 +15,7 @@ import HealthGoalPage from '../pages/HealthGoalPage';
 // 路由守卫组件
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/auth/login" replace />;
   }
   return <>{children}</>;
 };
@@ -25,7 +25,7 @@ const SimpleRouter: React.FC = () => {
     <BrowserRouter>
       <Routes>
         {/* 登录页（公开） */}
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/login" element={<LoginPage />} />
 
         {/* 首页（需要登录） */}
         <Route

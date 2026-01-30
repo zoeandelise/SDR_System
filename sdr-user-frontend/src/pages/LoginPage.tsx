@@ -40,11 +40,7 @@ const LoginPage: React.FC = () => {
       navigate(from, { replace: true });
       return;
     }
-    // 获取验证码
-    if (isLogin) {
-      RefreshCaptcha();
-    }
-  }, [navigate, location, isLogin]);
+  }, [navigate, location]);
 
   const RefreshCaptcha = async () => {
     try {
@@ -62,11 +58,7 @@ const LoginPage: React.FC = () => {
       setMessage('请输入用户名和密码');
       return;
     }
-    // 验证码校验（若依通常必须）
-    if (!loginForm.code) {
-      setMessage('请输入验证码');
-      return;
-    }
+
 
     setLoading(true);
     setMessage('');
@@ -194,28 +186,7 @@ const LoginPage: React.FC = () => {
                 )}
               </div>
 
-              {/* 验证码 (仅登录) */}
-              {isLogin && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">验证码</label>
-                  <div className="flex gap-2">
-                    <input
-                      required={isLogin}
-                      className="appearance-none block w-full px-3 py-2.5 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white"
-                      placeholder="验证码"
-                      value={loginForm.code}
-                      onChange={(e) => setLoginForm(p => ({ ...p, code: e.target.value }))}
-                    />
-                    <div className="w-32 h-[46px] flex-shrink-0 cursor-pointer" onClick={RefreshCaptcha} title="点击刷新">
-                      {captchaUrl ? (
-                        <img src={captchaUrl} alt="验证码" className="w-full h-full object-cover rounded-lg border border-gray-200" />
-                      ) : (
-                        <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-400">加载中...</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+
 
               {!isLogin && (
                 <>
