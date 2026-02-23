@@ -11,13 +11,33 @@ module.exports = {
     historyApiFallback: true, // 支持前端路由
     proxy: [
       {
-        context: ['/api', '/login', '/logout', '/getInfo', '/register', '/captchaImage', '/common', '/actuator'],
+        context: ['/api', '/diet', '/login', '/logout', '/getInfo', '/register', '/captchaImage', '/common', '/actuator'],
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
-        onProxyReq: function (proxyReq) {
+        cookieDomainRewrite: {
+          '*': ''  // 重写 Cookie 域名为当前域名
+        },
+        onProxyReq: function (proxyReq, req, res) {
           proxyReq.setHeader('Origin', 'http://localhost:8080');
           proxyReq.setHeader('Referer', 'http://localhost:8080/');
+          // 转发原始请求中的 Cookie
+          if (req.headers.cookie) {
+            proxyReq.setHeader('Cookie', req.headers.cookie);
+          }
+        },
+        onProxyRes: function (proxyRes, req, res) {
+          // 转发响应中的 Set-Cookie 头
+          const cookies = proxyRes.headers['set-cookie'];
+          if (cookies) {
+            // 修改 Cookie 的域名和路径，使其在开发环境可用
+            const modifiedCookies = cookies.map(cookie => {
+              return cookie
+                .replace(/Domain=[^;]+;?/gi, '')  // 移除 Domain 属性
+                .replace(/Path=[^;]+;?/gi, 'Path=/;');  // 设置 Path 为根路径
+            });
+            proxyRes.headers['set-cookie'] = modifiedCookies;
+          }
         }
       }
     ]

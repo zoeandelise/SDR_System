@@ -5,6 +5,8 @@ import api, { dietRecordApi } from '../services/api';
 import Navbar from '../components/Navbar';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { useToast } from '../components/ui/Toast';
+import FoodDetailModal from '../components/FoodDetailModal';
 
 interface DietRecord {
   recordId: number;
@@ -27,12 +29,14 @@ interface QuickFood {
 
 const SimpleDietLogPage: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast, showConfirm } = useToast();
   const [records, setRecords] = useState<DietRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [foodSuggestions, setFoodSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [allFoods, setAllFoods] = useState<any[]>([]);
+  const [selectedFood, setSelectedFood] = useState<string | null>(null);
 
   // 新增记录表单
   const [newRecord, setNewRecord] = useState({
@@ -138,21 +142,23 @@ const SimpleDietLogPage: React.FC = () => {
         setShowAddForm(false);
         setNewRecord({ mealType: '1', notes: '', totalCalories: 0, totalProtein: 0, totalFat: 0, totalCarbohydrate: 0 });
         await loadRecords();
+        showToast('success', '饮食记录添加成功');
       }
     } catch (error: any) {
-      alert('添加失败：' + (error.message || '未知错误'));
+      showToast('error', '添加失败：' + (error.message || '未知错误'));
     }
   };
 
   const handleDeleteRecord = async (recordId: number) => {
-    if (!window.confirm('确定要删除这条记录吗？')) return;
-
-    try {
-      await dietRecordApi.deleteRecord(recordId);
-      await loadRecords();
-    } catch (error: any) {
-      alert('删除失败：' + (error.message || '未知错误'));
-    }
+    showConfirm('确定要删除这条记录吗？', async () => {
+      try {
+        await dietRecordApi.deleteRecord(recordId);
+        await loadRecords();
+        showToast('success', '删除成功');
+      } catch (error: any) {
+        showToast('error', '删除失败：' + (error.message || '未知错误'));
+      }
+    });
   };
 
   const mealTypeNames: { [key: string]: string } = {
@@ -185,12 +191,17 @@ const SimpleDietLogPage: React.FC = () => {
             <p className="mt-4 text-gray-500">加载中...</p>
           </div>
         ) : records.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-dashed border-gray-200">
-            <span className="text-6xl block mb-4 opacity-50">📝</span>
-            <p className="text-gray-500 mb-6 font-medium">还没有饮食记录</p>
-            <Button onClick={() => setShowAddForm(true)} variant="outline">
-              开始第一条记录
-            </Button>
+          <div className="py-8">
+            <div className="text-center mb-6">
+              <span className="text-6xl block mb-4">🍽️</span>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">开始记录今日饮食</h3>
+            </div>
+
+            <div className="text-center">
+              <Button onClick={() => setShowAddForm(true)} size="lg">
+                ✏️ 手动输入记录
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -210,7 +221,37 @@ const SimpleDietLogPage: React.FC = () => {
                           {record.recordDate}
                         </span>
                       </div>
-                      <p className="text-gray-700 mb-3 font-medium">{record.notes || '无备注'}</p>
+                      {/* 食物名称可点击，带分量 */}
+                      <div className="text-gray-700 mb-3 font-medium flex flex-wrap gap-1">
+                        {record.notes ? (
+                          record.notes.split(/[,，、]/).map((food: string, foodIdx: number) => {
+                            const cleanFood = food.trim().replace(/^(早餐|午餐|晚餐|加餐)[::：]\s*/, '');
+                            if (cleanFood && cleanFood.length > 0) {
+                              // 估算分量
+                              let portion = 100;
+                              if (cleanFood.includes('饭') || cleanFood.includes('面') || cleanFood.includes('粥')) portion = 200;
+                              else if (cleanFood.includes('汤') || cleanFood.includes('水') || cleanFood.includes('奶') || cleanFood.includes('茶')) portion = 250;
+                              else if (cleanFood.includes('菜') || cleanFood.includes('瓜') || cleanFood.includes('萝卜')) portion = 150;
+                              else if (cleanFood.includes('肉') || cleanFood.includes('鱼') || cleanFood.includes('鸡')) portion = 100;
+                              else if (cleanFood.includes('蛋')) portion = 50;
+                              return (
+                                <span
+                                  key={foodIdx}
+                                  onClick={() => setSelectedFood(cleanFood)}
+                                  className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded cursor-pointer inline-flex items-center gap-1"
+                                  title="点击查看营养详情"
+                                >
+                                  {cleanFood}
+                                  <span className="text-blue-400 text-xs">{portion}g</span>
+                                </span>
+                              );
+                            }
+                            return null;
+                          })
+                        ) : (
+                          <span className="text-gray-400">无备注</span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-2 text-xs font-medium">
                         <span className="px-2 py-1 bg-orange-50 text-orange-700 rounded-md border border-orange-100">
                           🔥 {record.totalCalories} kcal
@@ -398,6 +439,14 @@ const SimpleDietLogPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 食物详情弹窗 */}
+      {selectedFood && (
+        <FoodDetailModal
+          foodName={selectedFood}
+          onClose={() => setSelectedFood(null)}
+        />
       )}
     </div>
   );

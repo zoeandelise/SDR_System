@@ -1,6 +1,7 @@
 // API服务配置
 import axios, { AxiosResponse } from 'axios';
 import { env, API_ENDPOINTS, buildApiUrl } from '../config/environment';
+import { getToken } from '../utils/auth';
 import type {
   RuoYiResponse,
   AuthResponse,
@@ -40,8 +41,8 @@ let retryCount = 0;
 // 请求拦截器
 api.interceptors.request.use(
   (config: any) => {
-    // 添加认证token（从Cookies读取，与authService保持一致）
-    const token = document.cookie.split('; ').find(row => row.startsWith('Admin-Token='))?.split('=')[1];
+    // 添加认证token（使用统一的getToken方法）
+    const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

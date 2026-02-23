@@ -129,7 +129,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import request from '@/utils/request';
 
 export default {
   name: "UserHealthList",
@@ -155,14 +155,15 @@ export default {
     async getList() {
       this.loading = true;
       try {
-        const response = await axios.get('http://localhost:8080/diet/health/all', {
-          params: this.queryParams,
-          headers: { 'Authorization': 'Bearer ' + this.$store.getters.token }
+        const response = await request({
+          url: '/diet/health/all',
+          method: 'get',
+          params: this.queryParams
         });
         
-        if (response.data.code === 200) {
-          this.userList = response.data.rows || [];
-          this.total = response.data.total || 0;
+        if (response.code === 200) {
+          this.userList = response.rows || [];
+          this.total = response.total || 0;
         }
       } catch (error) {
         this.$message.error('加载失败');

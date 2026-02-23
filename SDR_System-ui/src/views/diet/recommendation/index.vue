@@ -209,7 +209,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { listRecommendation, delRecommendation } from "@/api/diet/recommendation";
 import { parseTime } from "@/utils/ruoyi";
 
 export default {
@@ -243,43 +243,22 @@ export default {
     parseTime,
     
     /** 查询列表 */
-    async getList() {
+    getList() {
       this.loading = true;
-      try {
-        const params = {
-          pageNum: this.queryParams.pageNum,
-          pageSize: this.queryParams.pageSize
-        };
-        
-        if (this.queryParams.userName) {
-          params.userName = this.queryParams.userName;
-        }
-        if (this.queryParams.isAccepted) {
-          params.isAccepted = this.queryParams.isAccepted;
-        }
-        if (this.dateRange && this.dateRange.length === 2) {
-          params.startDate = this.dateRange[0];
-          params.endDate = this.dateRange[1];
-        }
-        
-        // 直接调用后端API（不通过request封装）
-        const token = this.$store.getters.token;
-        const response = await axios.get('http://localhost:8080/diet/recommendation/list', { 
-          params,
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        
-        if (response.data.code === 200) {
-          this.planList = response.data.rows || [];
-          this.total = response.data.total || 0;
-          this.calculateStatistics(response.data.rows || []);
-        }
-      } catch (error) {
-        console.error('加载推荐方案失败:', error);
-        this.$message.error('加载失败');
-      } finally {
-        this.loading = false;
+      const params = { ...this.queryParams };
+      if (this.dateRange && this.dateRange.length === 2) {
+        params.startDate = this.dateRange[0];
+        params.endDate = this.dateRange[1];
       }
+      listRecommendation(params).then(response => {
+        this.planList = response.rows || [];
+        this.total = response.total || 0;
+        this.calculateStatistics(this.planList);
+      }).catch(() => {
+        this.$message.error('加载失败');
+      }).finally(() => {
+        this.loading = false;
+      });
     },
     
     /** 计算统计 */
@@ -320,17 +299,13 @@ export default {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
-      }).then(async () => {
-        try {
-          const token = this.$store.getters.token;
-          await axios.delete(`http://localhost:8080/diet/recommendation/${row.recommendationId}`, {
-            headers: { 'Authorization': 'Bearer ' + token }
-          });
+      }).then(() => {
+        delRecommendation(row.recommendationId).then(() => {
           this.$message.success('删除成功');
           this.getList();
-        } catch (error) {
+        }).catch(() => {
           this.$message.error('删除失败');
-        }
+        });
       });
     },
     

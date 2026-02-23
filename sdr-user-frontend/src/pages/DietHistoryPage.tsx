@@ -3,15 +3,18 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { dietRecordApi } from '../services/api';
 import FoodDetailModal from '../components/FoodDetailModal';
+import { useToast } from '../components/ui/Toast';
 
 const DietHistoryPage: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast, showConfirm } = useToast();
   const [records, setRecords] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [days, setDays] = useState(7);
   const [activeTab, setActiveTab] = useState<'records' | 'recommendations'>('records');
   const [executing, setExecuting] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const [selectedFood, setSelectedFood] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,8 +52,6 @@ const DietHistoryPage: React.FC = () => {
 
   const loadRecommendations = async () => {
     try {
-      const token = document.cookie.split('; ').find(row => row.startsWith('Admin-Token='))?.split('=')[1];
-
       // 直接从数据库查询推荐记录
       const response: any = await api.get('/api/user/diet/my-recommendations', {
         params: { days: days }
@@ -92,7 +93,6 @@ const DietHistoryPage: React.FC = () => {
   const handleExecutePlan = async (recommendationId: number) => {
     try {
       setExecuting(recommendationId);
-      const token = document.cookie.split('; ').find(row => row.startsWith('Admin-Token='))?.split('=')[1];
 
       const response: any = await api.post(
         '/api/user/diet/plan/execute',
@@ -100,14 +100,36 @@ const DietHistoryPage: React.FC = () => {
       );
 
       if (response.code === 200) {
-        alert('✅ 方案已执行！已添加到今日饮食记录');
+        showToast('success', '方案已执行！已添加到今日饮食记录');
         loadRecommendations();
       }
     } catch (error: any) {
-      alert('❌ 执行失败：' + (error.response?.data?.msg || error.message));
+      showToast('error', '执行失败：' + (error.response?.data?.msg || error.message));
     } finally {
       setExecuting(null);
     }
+  };
+
+  // 删除推荐方案
+  const handleDeleteRecommendation = async (recommendationId: number) => {
+    showConfirm('确定要删除这个 AI 推荐方案吗？', async () => {
+      try {
+        setDeleting(recommendationId);
+
+        const response: any = await api.delete(`/api/user/diet/recommendation/${recommendationId}`);
+
+        if (response.code === 200) {
+          showToast('success', '删除成功');
+          loadRecommendations();
+        } else {
+          throw new Error(response.msg || '删除失败');
+        }
+      } catch (error: any) {
+        showToast('error', '删除失败：' + (error.message || '未知错误'));
+      } finally {
+        setDeleting(null);
+      }
+    });
   };
 
   return (
@@ -192,7 +214,7 @@ const DietHistoryPage: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="flex items-center gap-2">
                           {isExecuted ? (
                             <span className="px-4 py-2 bg-green-500 text-white rounded-full text-sm font-bold">
                               ✓ 已执行
@@ -200,11 +222,20 @@ const DietHistoryPage: React.FC = () => {
                           ) : (
                             <button
                               onClick={() => handleExecutePlan(rec.recommendationId)}
-                              className="px-6 py-3 bg-white text-purple-600 rounded-xl font-bold hover:bg-purple-50 shadow-lg"
+                              disabled={executing === rec.recommendationId}
+                              className="px-6 py-3 bg-white text-purple-600 rounded-xl font-bold hover:bg-purple-50 shadow-lg disabled:opacity-50"
                             >
-                              🚀 一键执行此方案
+                              {executing === rec.recommendationId ? '执行中...' : '🚀 一键执行'}
                             </button>
                           )}
+                          <button
+                            onClick={() => handleDeleteRecommendation(rec.recommendationId)}
+                            disabled={deleting === rec.recommendationId}
+                            className="px-4 py-3 bg-red-500/20 text-white rounded-xl hover:bg-red-500/40 transition-colors disabled:opacity-50"
+                            title="删除此方案"
+                          >
+                            {deleting === rec.recommendationId ? '⏳' : '🗑️'}
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -275,38 +306,68 @@ const DietHistoryPage: React.FC = () => {
                     {dayRecords.map((record, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                        className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                       >
-                        <div className="flex items-center space-x-3">
-                          <span className="text-3xl">
-                            {mealTypeEmojis[record.mealType] || '🍽️'}
-                          </span>
-                          <div>
-                            <div className="font-medium text-gray-900">
-                              {mealTypeNames[record.mealType] || '未知'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {record.notes || '无备注'}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <span className="text-3xl">
+                              {mealTypeEmojis[record.mealType] || '🍽️'}
+                            </span>
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {mealTypeNames[record.mealType] || '未知'}
+                              </div>
+                              {/* 食物列表可点击，带分量 */}
+                              <div className="text-sm text-gray-500 flex flex-wrap gap-1 mt-1">
+                                {record.notes ? (
+                                  record.notes.split(/[,，、]/).map((food: string, foodIdx: number) => {
+                                    const cleanFood = food.trim().replace(/^(早餐|午餐|晚餐|加餐)[:：]\s*/, '');
+                                    if (cleanFood && cleanFood.length > 0) {
+                                      // 估算分量
+                                      let portion = 100;
+                                      if (cleanFood.includes('饭') || cleanFood.includes('面') || cleanFood.includes('粥')) portion = 200;
+                                      else if (cleanFood.includes('汤') || cleanFood.includes('水') || cleanFood.includes('奶') || cleanFood.includes('茶')) portion = 250;
+                                      else if (cleanFood.includes('菜') || cleanFood.includes('瓜') || cleanFood.includes('萝卜')) portion = 150;
+                                      else if (cleanFood.includes('肉') || cleanFood.includes('鱼') || cleanFood.includes('鸡')) portion = 100;
+                                      else if (cleanFood.includes('蛋')) portion = 50;
+                                      return (
+                                        <span
+                                          key={foodIdx}
+                                          onClick={() => setSelectedFood(cleanFood)}
+                                          className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-0.5 rounded cursor-pointer text-xs"
+                                          title="点击查看营养详情"
+                                        >
+                                          {cleanFood}
+                                          <span className="text-blue-400 ml-1">{portion}g</span>
+                                        </span>
+                                      );
+                                    }
+                                    return null;
+                                  })
+                                ) : (
+                                  <span className="text-gray-400">无备注</span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-gray-900">
-                              {record.totalCalories}
+                          <div className="flex items-center space-x-4">
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-gray-900">
+                                {record.totalCalories}
+                              </div>
+                              <div className="text-xs text-gray-500">卡路里</div>
                             </div>
-                            <div className="text-xs text-gray-500">卡路里</div>
-                          </div>
-                          <div className="flex gap-2 text-xs">
-                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                              蛋白{record.totalProtein}g
-                            </span>
-                            <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">
-                              碳水{record.totalCarbohydrate}g
-                            </span>
-                            <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">
-                              脂肪{record.totalFat}g
-                            </span>
+                            <div className="flex gap-2 text-xs">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                蛋白{record.totalProtein}g
+                              </span>
+                              <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">
+                                碳水{record.totalCarbohydrate}g
+                              </span>
+                              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                                脂肪{record.totalFat}g
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>

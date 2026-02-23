@@ -17,6 +17,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="dailyCalorieGoal"    column="daily_calorie_goal"    />
         <result property="allergies"    column="allergies"    />
         <result property="diseases"    column="diseases"    />
+        <result property="dietPreferences"    column="diet_preferences"    />
+        <result property="dailyProteinGoal"    column="daily_protein_goal"    />
+        <result property="dailyCarbGoal"    column="daily_carb_goal"    />
+        <result property="dailyFatGoal"    column="daily_fat_goal"    />
+        <result property="portionPreference"    column="portion_preference"    />
+        <result property="occupation"    column="occupation"    />
         <result property="createTime"    column="create_time"    />
         <result property="updateTime"    column="update_time"    />
         <result property="userName"    column="user_name"    />
@@ -24,7 +30,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <sql id="selectSysUserHealthVo">
         select h.health_id, h.user_id, h.height, h.weight, h.age, h.gender, h.activity_level, 
-               h.health_goal, h.target_weight, h.daily_calorie_goal, h.allergies, h.diseases, 
+               h.health_goal, h.target_weight, h.daily_calorie_goal, h.allergies, h.diseases,
+               h.diet_preferences, h.daily_protein_goal, h.daily_carb_goal, h.daily_fat_goal,
+               h.portion_preference, h.occupation,
                h.create_time, h.update_time, u.user_name
         from sys_user_health h
         left join sys_user u on h.user_id = u.user_id
@@ -65,6 +73,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="dailyCalorieGoal != null">daily_calorie_goal,</if>
             <if test="allergies != null">allergies,</if>
             <if test="diseases != null">diseases,</if>
+            <if test="dietPreferences != null">diet_preferences,</if>
+            <if test="dailyProteinGoal != null">daily_protein_goal,</if>
+            <if test="dailyCarbGoal != null">daily_carb_goal,</if>
+            <if test="dailyFatGoal != null">daily_fat_goal,</if>
+            <if test="portionPreference != null">portion_preference,</if>
+            <if test="occupation != null">occupation,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateTime != null">update_time,</if>
          </trim>
@@ -80,6 +94,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="dailyCalorieGoal != null">#{dailyCalorieGoal},</if>
             <if test="allergies != null">#{allergies},</if>
             <if test="diseases != null">#{diseases},</if>
+            <if test="dietPreferences != null">#{dietPreferences},</if>
+            <if test="dailyProteinGoal != null">#{dailyProteinGoal},</if>
+            <if test="dailyCarbGoal != null">#{dailyCarbGoal},</if>
+            <if test="dailyFatGoal != null">#{dailyFatGoal},</if>
+            <if test="portionPreference != null">#{portionPreference},</if>
+            <if test="occupation != null">#{occupation},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateTime != null">#{updateTime},</if>
          </trim>
@@ -99,6 +119,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="dailyCalorieGoal != null">daily_calorie_goal = #{dailyCalorieGoal},</if>
             <if test="allergies != null">allergies = #{allergies},</if>
             <if test="diseases != null">diseases = #{diseases},</if>
+            <if test="dietPreferences != null">diet_preferences = #{dietPreferences},</if>
+            <if test="dailyProteinGoal != null">daily_protein_goal = #{dailyProteinGoal},</if>
+            <if test="dailyCarbGoal != null">daily_carb_goal = #{dailyCarbGoal},</if>
+            <if test="dailyFatGoal != null">daily_fat_goal = #{dailyFatGoal},</if>
+            <if test="portionPreference != null">portion_preference = #{portionPreference},</if>
+            <if test="occupation != null">occupation = #{occupation},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>

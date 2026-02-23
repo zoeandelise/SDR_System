@@ -65,6 +65,28 @@ public class SysUserHealth extends BaseEntity
     @Excel(name = "疾病信息")
     private String diseases;
 
+    /** 饮食偏好 */
+    @Excel(name = "饮食偏好")
+    private String dietPreferences;
+
+    /** 每日蛋白质目标(g) */
+    @Excel(name = "每日蛋白质目标(g)")
+    private Integer dailyProteinGoal;
+
+    /** 每日碳水目标(g) */
+    @Excel(name = "每日碳水目标(g)")
+    private Integer dailyCarbGoal;
+
+    /** 每日脂肪目标(g) */
+    @Excel(name = "每日脂肪目标(g)")
+    private Integer dailyFatGoal;
+
+    /** 食量偏好(small/normal/large) */
+    private String portionPreference;
+
+    /** 职业 */
+    private String occupation;
+
     /** 用户名称 */
     @Excel(name = "用户名称")
     private String userName;
@@ -193,6 +215,66 @@ public class SysUserHealth extends BaseEntity
     public void setDiseases(String diseases)
     {
         this.diseases = diseases;
+    }
+
+    public String getDietPreferences()
+    {
+        return dietPreferences;
+    }
+
+    public void setDietPreferences(String dietPreferences)
+    {
+        this.dietPreferences = dietPreferences;
+    }
+
+    public Integer getDailyProteinGoal()
+    {
+        return dailyProteinGoal;
+    }
+
+    public void setDailyProteinGoal(Integer dailyProteinGoal)
+    {
+        this.dailyProteinGoal = dailyProteinGoal;
+    }
+
+    public Integer getDailyCarbGoal()
+    {
+        return dailyCarbGoal;
+    }
+
+    public void setDailyCarbGoal(Integer dailyCarbGoal)
+    {
+        this.dailyCarbGoal = dailyCarbGoal;
+    }
+
+    public Integer getDailyFatGoal()
+    {
+        return dailyFatGoal;
+    }
+
+    public void setDailyFatGoal(Integer dailyFatGoal)
+    {
+        this.dailyFatGoal = dailyFatGoal;
+    }
+
+    public String getPortionPreference()
+    {
+        return portionPreference;
+    }
+
+    public void setPortionPreference(String portionPreference)
+    {
+        this.portionPreference = portionPreference;
+    }
+
+    public String getOccupation()
+    {
+        return occupation;
+    }
+
+    public void setOccupation(String occupation)
+    {
+        this.occupation = occupation;
     }
 
     public String getUserName() 

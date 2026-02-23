@@ -5,6 +5,7 @@ import api from '../services/api';
 import Navbar from '../components/Navbar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { useToast } from '../components/ui/Toast';
 
 interface RecommendedFood {
     food_id: number;
@@ -33,11 +34,8 @@ const SmartRecommendationPage: React.FC = () => {
     const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
-
-    // 获取 Token
-    const getToken = () => {
-        return document.cookie.split('; ').find(row => row.startsWith('Admin-Token='))?.split('=')[1];
-    };
+    const [replacingFood, setReplacingFood] = useState<string | null>(null); // 正在替换的食物标识
+    const { showToast } = useToast();
 
     // 生成今日方案
     const generateDailyPlan = async () => {
@@ -46,7 +44,6 @@ const SmartRecommendationPage: React.FC = () => {
             setError('');
             setDailyPlan(null);
 
-            const token = getToken();
             const response: any = await api.post('/api/user/diet/daily-plan', {});
 
             if (response.code === 200 && response.data) {
@@ -76,16 +73,69 @@ const SmartRecommendationPage: React.FC = () => {
             const response: any = await api.post('/api/user/diet/save-daily-plan', dailyPlan);
 
             if (response.code === 200) {
-                alert('✅ 方案已保存到饮食记录！');
+                showToast('success', '方案已保存到饮食记录！');
                 navigate('/diet-history?tab=recommendations');
             } else {
                 throw new Error(response.msg || '保存失败');
             }
         } catch (err: any) {
             console.error('保存方案失败:', err);
-            alert('❌ 保存失败：' + (err.response?.data?.msg || err.message));
+            showToast('error', '保存失败：' + (err.response?.data?.msg || err.message));
         } finally {
             setSaving(false);
+        }
+    };
+
+    // 替换单个食物
+    const replaceFood = async (mealType: 'breakfast' | 'lunch' | 'dinner', foodIndex: number) => {
+        if (!dailyPlan) return;
+
+        const mealTypeMap = { breakfast: '0', lunch: '1', dinner: '2' };
+        const mealTypeCode = mealTypeMap[mealType];
+        const currentFood = dailyPlan[mealType][foodIndex];
+        const foodKey = `${mealType}-${foodIndex}`;
+
+        try {
+            setReplacingFood(foodKey);
+
+            const response: any = await api.post('/api/user/diet/replace-food', {
+                mealType: mealTypeCode,
+                excludeFoodId: currentFood.food_id
+            });
+
+            if (response.code === 200 && response.data) {
+                // 映射字段名
+                const newFood: RecommendedFood = {
+                    food_id: response.data.food_id,
+                    food_name: response.data.food_name,
+                    calories: response.data.calories_per_100g || response.data.calories || 0,
+                    protein: response.data.protein_per_100g || response.data.protein || 0,
+                    carbohydrate: response.data.carb_per_100g || response.data.carbohydrate || 0,
+                    fat: response.data.fat_per_100g || response.data.fat || 0,
+                    reason: response.data.reason || '智能推荐'
+                };
+
+                // 更新 dailyPlan 中对应的食物
+                const updatedMeal = [...dailyPlan[mealType]];
+                updatedMeal[foodIndex] = newFood;
+
+                // 重新计算总营养（四舍五入避免浮点精度问题）
+                const updatedPlan = { ...dailyPlan, [mealType]: updatedMeal };
+                const allFoods = [...updatedPlan.breakfast, ...updatedPlan.lunch, ...updatedPlan.dinner];
+                updatedPlan.totalCalories = Math.round(allFoods.reduce((sum, f) => sum + (f.calories || 0), 0));
+                updatedPlan.totalProtein = Math.round(allFoods.reduce((sum, f) => sum + (f.protein || 0), 0) * 10) / 10;
+                updatedPlan.totalCarbohydrate = Math.round(allFoods.reduce((sum, f) => sum + (f.carbohydrate || 0), 0) * 10) / 10;
+                updatedPlan.totalFat = Math.round(allFoods.reduce((sum, f) => sum + (f.fat || 0), 0) * 10) / 10;
+
+                setDailyPlan(updatedPlan);
+            } else {
+                throw new Error(response.msg || '替换失败');
+            }
+        } catch (err: any) {
+            console.error('替换食物失败:', err);
+            showToast('error', '替换失败：' + (err.message || '未知错误'));
+        } finally {
+            setReplacingFood(null);
         }
     };
 
@@ -209,18 +259,24 @@ const SmartRecommendationPage: React.FC = () => {
                                 emoji="🍳"
                                 foods={dailyPlan.breakfast}
                                 type="breakfast"
+                                onReplace={(idx: number) => replaceFood('breakfast', idx)}
+                                replacingFood={replacingFood}
                             />
                             <MealCard
                                 title="午餐"
                                 emoji="🍱"
                                 foods={dailyPlan.lunch}
                                 type="lunch"
+                                onReplace={(idx: number) => replaceFood('lunch', idx)}
+                                replacingFood={replacingFood}
                             />
                             <MealCard
                                 title="晚餐"
                                 emoji="🍲"
                                 foods={dailyPlan.dinner}
                                 type="dinner"
+                                onReplace={(idx: number) => replaceFood('dinner', idx)}
+                                replacingFood={replacingFood}
                             />
                         </div>
 
@@ -253,17 +309,20 @@ const SmartRecommendationPage: React.FC = () => {
 };
 
 // 子组件：营养概览卡片
-const NutritionOverviewCard = ({ label, value, unit, color, bgColor }: any) => (
-    <Card className={`${bgColor} border-0 shadow-sm`}>
-        <div className="text-center p-3">
-            <div className={`text-2xl font-bold ${color}`}>{value}</div>
-            <div className="text-xs text-gray-500 mt-1">{label} ({unit})</div>
-        </div>
-    </Card>
-);
+const NutritionOverviewCard = ({ label, value, unit, color, bgColor }: any) => {
+    const displayValue = typeof value === 'number' ? Math.round(value * 10) / 10 : value;
+    return (
+        <Card className={`${bgColor} border-0 shadow-sm`}>
+            <div className="text-center p-3">
+                <div className={`text-2xl font-bold ${color}`}>{displayValue}</div>
+                <div className="text-xs text-gray-500 mt-1">{label} ({unit})</div>
+            </div>
+        </Card>
+    );
+};
 
 // 子组件：餐食卡片
-const MealCard = ({ title, emoji, foods, type }: any) => {
+const MealCard = ({ title, emoji, foods, type, onReplace, replacingFood }: any) => {
     const bgGradient =
         type === 'breakfast' ? 'from-orange-100 to-orange-50' :
             type === 'lunch' ? 'from-green-100 to-green-50' :
@@ -274,34 +333,94 @@ const MealCard = ({ title, emoji, foods, type }: any) => {
             type === 'lunch' ? 'bg-green-200 text-green-700' :
                 'bg-blue-200 text-blue-700';
 
+    // 饮食时间和建议提示
+    const mealTips: Record<string, { time: string; tip: string }> = {
+        breakfast: { time: '7:00-9:00', tip: '蛋白质优先，启动新陈代谢' },
+        lunch: { time: '11:30-13:00', tip: '均衡搭配，补充能量' },
+        dinner: { time: '17:30-19:00', tip: '清淡为主，易于消化' }
+    };
+
+    const tip = mealTips[type];
+
+    // 根据食物类型估算标准分量(g)
+    const getPortionSize = (food: any): number => {
+        const name = food.food_name || '';
+        // 主食类
+        if (name.includes('饭') || name.includes('面') || name.includes('粥')) return 200;
+        // 饮品类
+        if (name.includes('汤') || name.includes('水') || name.includes('奶') || name.includes('豆浆')) return 250;
+        // 蔬菜类
+        if (name.includes('菜') || name.includes('瓜') || name.includes('花')) return 150;
+        // 肉类
+        if (name.includes('肉') || name.includes('鱼') || name.includes('虾') || name.includes('鸡')) return 100;
+        // 蛋类
+        if (name.includes('蛋')) return 50;
+        // 默认
+        return 100;
+    };
+
     return (
         <Card className="overflow-hidden border-0 shadow-md flex flex-col h-full hover:shadow-xl transition-shadow duration-300">
-            <div className={`p-4 bg-gradient-to-r ${bgGradient} flex items-center gap-3`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${iconColor} text-xl shadow-sm`}>
-                    {emoji}
+            <div className={`p-4 bg-gradient-to-r ${bgGradient}`}>
+                <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${iconColor} text-xl shadow-sm`}>
+                        {emoji}
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-800 text-lg">{title}</h3>
+                        {tip && (
+                            <div className="text-xs text-gray-500">⏰ {tip.time}</div>
+                        )}
+                    </div>
                 </div>
-                <h3 className="font-bold text-gray-800 text-lg">{title}</h3>
+                {tip && (
+                    <div className="text-xs text-gray-600 bg-white/50 px-3 py-1.5 rounded-lg">
+                        💡 <span className="font-medium">{tip.tip}</span>
+                    </div>
+                )}
             </div>
 
             <div className="p-4 space-y-3 flex-1 bg-white">
-                {foods?.map((food: any, idx: number) => (
-                    <div key={idx} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors group">
-                        <div className="w-1.5 h-1.5 rounded-full bg-gray-300 mt-2 group-hover:bg-purple-400 transition-colors"></div>
-                        <div>
-                            <div className="font-medium text-gray-900 leading-tight">
-                                {food.food_name}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                                {food.calories} kcal · {food.protein}g 蛋白
-                            </div>
-                            {food.reason && (
-                                <div className="text-xs text-purple-600 mt-1 bg-purple-50 px-2 py-0.5 rounded inline-block">
-                                    💡 {food.reason}
+                {foods?.map((food: any, idx: number) => {
+                    const isReplacing = replacingFood === `${type}-${idx}`;
+                    // 使用后端返回的推荐分量，没有则用估算值
+                    const portion = food.recommended_portion || getPortionSize(food);
+                    // 计算该分量对应的实际热量和蛋白质
+                    const actualCalories = Math.round((food.calories_per_100g || food.calories || 0) * portion / 100);
+                    const actualProtein = Math.round((food.protein_per_100g || food.protein || 0) * portion / 100 * 10) / 10;
+                    return (
+                        <div key={idx} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors group">
+                            <div className="w-1.5 h-1.5 rounded-full bg-gray-300 mt-2 group-hover:bg-purple-400 transition-colors"></div>
+                            <div className="flex-1">
+                                <div className="font-medium text-gray-900 leading-tight">
+                                    {food.food_name}
                                 </div>
-                            )}
+                                <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2">
+                                    <span className="bg-amber-50 text-amber-700 px-1.5 rounded">{portion}g</span>
+                                    <span>{actualCalories} kcal</span>
+                                    <span>· {actualProtein}g 蛋白</span>
+                                </div>
+                                {food.reason && (
+                                    <div className="text-xs text-purple-600 mt-1 bg-purple-50 px-2 py-0.5 rounded inline-block">
+                                        💡 {food.reason}
+                                    </div>
+                                )}
+                            </div>
+                            {/* 替换按钮 */}
+                            <button
+                                onClick={() => onReplace && onReplace(idx)}
+                                disabled={isReplacing}
+                                className={`text-xs px-2 py-1 rounded-full transition-all opacity-0 group-hover:opacity-100 ${isReplacing
+                                    ? 'bg-gray-100 text-gray-400 cursor-wait'
+                                    : 'bg-purple-100 text-purple-600 hover:bg-purple-200'
+                                    }`}
+                                title="换一个"
+                            >
+                                {isReplacing ? '⚙️' : '🔄 换'}
+                            </button>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
                 {(!foods || foods.length === 0) && (
                     <div className="text-center text-gray-400 py-8 text-sm">
                         暂无推荐

@@ -63,30 +63,63 @@ public class UserDietApiController extends BaseController
         try {
             Long userId = getCurrentUserId();
             
-            String sql = "UPDATE sys_user_health SET " +
-                        "gender = ?, age = ?, height = ?, weight = ?, " +
-                        "diseases = ?, allergies = ?, diet_preferences = ?, " +
-                        "health_goal = ?, target_weight = ?, " +
-                        "daily_calorie_goal = ?, daily_protein_goal = ?, " +
-                        "daily_carb_goal = ?, daily_fat_goal = ? " +
-                        "WHERE user_id = ?";
+            // 先检查用户是否有健康记录
+            String checkSql = "SELECT COUNT(*) FROM sys_user_health WHERE user_id = ?";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, userId);
             
-            jdbcTemplate.update(sql,
-                goalData.get("gender"),
-                goalData.get("age"),
-                goalData.get("height"),
-                goalData.get("weight"),
-                goalData.get("diseases"),
-                goalData.get("allergies"),
-                goalData.get("dietPreferences"),
-                goalData.get("healthGoal"),
-                goalData.get("targetWeight"),
-                goalData.get("dailyCalorieGoal"),
-                goalData.get("dailyProteinGoal"),
-                goalData.get("dailyCarbGoal"),
-                goalData.get("dailyFatGoal"),
-                userId
-            );
+            if (count == null || count == 0) {
+                // 新用户，先插入记录
+                String insertSql = "INSERT INTO sys_user_health (user_id, gender, age, height, weight, " +
+                            "diseases, allergies, diet_preferences, health_goal, target_weight, " +
+                            "daily_calorie_goal, daily_protein_goal, daily_carb_goal, daily_fat_goal, " +
+                            "portion_preference, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+                
+                jdbcTemplate.update(insertSql,
+                    userId,
+                    goalData.get("gender"),
+                    goalData.get("age"),
+                    goalData.get("height"),
+                    goalData.get("weight"),
+                    goalData.get("diseases"),
+                    goalData.get("allergies"),
+                    goalData.get("dietPreferences"),
+                    goalData.get("healthGoal"),
+                    goalData.get("targetWeight"),
+                    goalData.get("dailyCalorieGoal"),
+                    goalData.get("dailyProteinGoal"),
+                    goalData.get("dailyCarbGoal"),
+                    goalData.get("dailyFatGoal"),
+                    goalData.get("portionPreference")
+                );
+            } else {
+                // 已有记录，更新
+                String updateSql = "UPDATE sys_user_health SET " +
+                            "gender = ?, age = ?, height = ?, weight = ?, " +
+                            "diseases = ?, allergies = ?, diet_preferences = ?, " +
+                            "health_goal = ?, target_weight = ?, " +
+                            "daily_calorie_goal = ?, daily_protein_goal = ?, " +
+                            "daily_carb_goal = ?, daily_fat_goal = ?, " +
+                            "portion_preference = ?, update_time = NOW() " +
+                            "WHERE user_id = ?";
+                
+                jdbcTemplate.update(updateSql,
+                    goalData.get("gender"),
+                    goalData.get("age"),
+                    goalData.get("height"),
+                    goalData.get("weight"),
+                    goalData.get("diseases"),
+                    goalData.get("allergies"),
+                    goalData.get("dietPreferences"),
+                    goalData.get("healthGoal"),
+                    goalData.get("targetWeight"),
+                    goalData.get("dailyCalorieGoal"),
+                    goalData.get("dailyProteinGoal"),
+                    goalData.get("dailyCarbGoal"),
+                    goalData.get("dailyFatGoal"),
+                    goalData.get("portionPreference"),
+                    userId
+                );
+            }
             
             return success("健康信息已更新");
         } catch (Exception e) {
@@ -125,6 +158,30 @@ public class UserDietApiController extends BaseController
         } catch (Exception e) {
             logger.error("获取推荐方案失败", e);
             return error("获取推荐方案失败：" + e.getMessage());
+        }
+    }
+    
+    /**
+     * 删除AI推荐方案
+     */
+    @DeleteMapping("/recommendation/{recommendationId}")
+    @Log(title = "删除AI推荐方案", businessType = BusinessType.DELETE)
+    public AjaxResult deleteRecommendation(@PathVariable Long recommendationId) {
+        try {
+            Long userId = getCurrentUserId();
+            
+            // 验证记录所有权并删除
+            String sql = "DELETE FROM diet_ai_recognition WHERE recognition_id = ? AND user_id = ?";
+            int result = jdbcTemplate.update(sql, recommendationId, userId);
+            
+            if (result > 0) {
+                return success("删除成功");
+            } else {
+                return error("记录不存在或无权限删除");
+            }
+        } catch (Exception e) {
+            logger.error("删除推荐方案失败", e);
+            return error("删除失败：" + e.getMessage());
         }
     }
     
@@ -189,13 +246,64 @@ public class UserDietApiController extends BaseController
             
             plan.put("totalCalories", totalCal);
             plan.put("totalProtein", Math.round(totalProtein * 10) / 10.0);
-            plan.put("totalCarb", Math.round(totalCarb * 10) / 10.0);
+            plan.put("totalCarbohydrate", Math.round(totalCarb * 10) / 10.0);
             plan.put("totalFat", Math.round(totalFat * 10) / 10.0);
             
             return success(plan);
         } catch (Exception e) {
             logger.error("生成全天方案失败", e);
             return error("生成失败：" + e.getMessage());
+        }
+    }
+    
+    /**
+     * 替换单个食物（获取一个新的同餐型食物推荐）
+     */
+    @PostMapping("/replace-food")
+    public AjaxResult replaceSingleFood(@RequestBody Map<String, Object> params) {
+        try {
+            Long userId = getCurrentUserId();
+            String mealType = (String) params.get("mealType"); // "0"=早餐, "1"=午餐, "2"=晚餐
+            Integer excludeFoodId = params.get("excludeFoodId") != null ? 
+                ((Number) params.get("excludeFoodId")).intValue() : null;
+            
+            if (mealType == null) {
+                return error("缺少餐型参数");
+            }
+            
+            // 调用推荐算法获取一个新食物
+            List<Map<String, Object>> newFoods = jdbcTemplate.queryForList(
+                "CALL generate_chinese_diet_recommendation(?, ?, ?)", 
+                userId, mealType, 1
+            );
+            
+            // 如果需要排除某个食物ID，重新获取直到不重复（最多尝试3次）
+            int attempts = 0;
+            while (excludeFoodId != null && attempts < 3 && !newFoods.isEmpty()) {
+                Map<String, Object> newFood = newFoods.get(0);
+                Object foodIdObj = newFood.get("food_id");
+                if (foodIdObj != null && ((Number) foodIdObj).intValue() == excludeFoodId) {
+                    newFoods = jdbcTemplate.queryForList(
+                        "CALL generate_chinese_diet_recommendation(?, ?, ?)", 
+                        userId, mealType, 1
+                    );
+                    attempts++;
+                } else {
+                    break;
+                }
+            }
+            
+            if (newFoods.isEmpty()) {
+                return error("暂无可替换的食物");
+            }
+            
+            // 处理字段映射
+            processFoodList(newFoods);
+            
+            return success(newFoods.get(0));
+        } catch (Exception e) {
+            logger.error("替换食物失败", e);
+            return error("替换失败：" + e.getMessage());
         }
     }
     
@@ -792,55 +900,274 @@ public class UserDietApiController extends BaseController
     }
     
     /**
-     * 计算体重变化（简化版：从健康数据估算）
-     */
-    private Double calculateWeightLoss(Long userId) {
-        try {
-            // 查询用户目标体重和当前体重
-            String sql = "SELECT weight, target_weight FROM sys_user_health WHERE user_id = ? LIMIT 1";
-            List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, userId);
-            
-            if (!results.isEmpty()) {
-                Map<String, Object> data = results.get(0);
-                Double weight = data.get("weight") != null ? ((Number)data.get("weight")).doubleValue() : 70.0;
-                Double targetWeight = data.get("target_weight") != null ? ((Number)data.get("target_weight")).doubleValue() : weight;
-                
-                // 如果目标体重小于当前体重，说明在减重
-                if (targetWeight < weight) {
-                    return Math.round((weight - targetWeight) * 10) / 10.0;
-                }
-            }
-        } catch (Exception e) {
-            logger.warn("计算体重变化失败: {}", e.getMessage());
-        }
-        return 0.0;
-    }
-    
-    /**
-     * 计算健康评分（基于饮食记录的完整度和规律性）
+     * 计算健康评分（改进版：考虑多个维度）
+     * 满分100分 = 饮食记录25分 + 营养均衡25分 + 饮食规律25分 + 体重管理25分
      */
     private Integer calculateHealthScore(Long userId) {
+        int score = 0;
+        
         try {
-            // 查询最近7天的记录数
             Date today = new Date();
             Date weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000L);
             
             List<DietRecord> recentRecords = dietRecordService.selectDietRecordsByUserIdAndDateRange(userId, weekAgo, today);
-            
             int recordCount = recentRecords != null ? recentRecords.size() : 0;
             
-            // 基础分60分
-            int score = 60;
+            // 1. 饮食记录完整度 (25分)
+            // 理想情况：7天×3餐=21条记录
+            int recordScore = Math.min((recordCount * 25) / 21, 25);
+            score += recordScore;
             
-            // 根据记录数量加分（每条记录+2分，最多40分）
-            score += Math.min(recordCount * 2, 40);
+            // 2. 营养均衡度 (25分)
+            if (recentRecords != null && !recentRecords.isEmpty()) {
+                double totalProtein = 0, totalCarbs = 0, totalFat = 0;
+                for (DietRecord r : recentRecords) {
+                    totalProtein += r.getTotalProtein() != null ? r.getTotalProtein().doubleValue() : 0;
+                    totalCarbs += r.getTotalCarbohydrate() != null ? r.getTotalCarbohydrate().doubleValue() : 0;
+                    totalFat += r.getTotalFat() != null ? r.getTotalFat().doubleValue() : 0;
+                }
+                double total = totalProtein + totalCarbs + totalFat;
+                if (total > 0) {
+                    double proteinRatio = totalProtein / total;
+                    double carbRatio = totalCarbs / total;
+                    double fatRatio = totalFat / total;
+                    
+                    // 理想比例：蛋白质20-30%, 碳水50-60%, 脂肪20-30%
+                    int proteinScore = (proteinRatio >= 0.15 && proteinRatio <= 0.35) ? 8 : 4;
+                    int carbScore = (carbRatio >= 0.40 && carbRatio <= 0.65) ? 9 : 4;
+                    int fatScore = (fatRatio >= 0.15 && fatRatio <= 0.35) ? 8 : 4;
+                    score += proteinScore + carbScore + fatScore;
+                }
+            }
             
-            // 确保在60-100范围内
-            return Math.max(60, Math.min(score, 100));
+            // 3. 饮食规律性 (25分)
+            // 检查是否有早/午/晚餐记录
+            boolean hasBreakfast = false, hasLunch = false, hasDinner = false;
+            if (recentRecords != null) {
+                for (DietRecord r : recentRecords) {
+                    if ("0".equals(r.getMealType())) hasBreakfast = true;
+                    if ("1".equals(r.getMealType())) hasLunch = true;
+                    if ("2".equals(r.getMealType())) hasDinner = true;
+                }
+            }
+            if (hasBreakfast) score += 8;
+            if (hasLunch) score += 9;
+            if (hasDinner) score += 8;
+            
+            // 4. 体重管理 (25分)
+            Double weightProgress = calculateWeightProgress(userId);
+            if (weightProgress != null) {
+                if (weightProgress >= 100) {
+                    score += 25; // 达到目标
+                } else if (weightProgress >= 50) {
+                    score += 20; // 进展良好
+                } else if (weightProgress > 0) {
+                    score += 15; // 有进展
+                } else {
+                    score += 10; // 开始记录
+                }
+            } else {
+                score += 10; // 未设置目标也给基础分
+            }
+            
+            return Math.max(0, Math.min(score, 100));
             
         } catch (Exception e) {
             logger.warn("计算健康评分失败: {}", e.getMessage());
-            return 75; // 默认中等评分
+            return 60; // 默认评分
+        }
+    }
+    
+    /**
+     * 计算体重进度百分比
+     */
+    private Double calculateWeightProgress(Long userId) {
+        try {
+            // 获取用户目标体重和当前体重
+            String healthSql = "SELECT weight, target_weight FROM sys_user_health WHERE user_id = ? LIMIT 1";
+            List<Map<String, Object>> healthResults = jdbcTemplate.queryForList(healthSql, userId);
+            
+            if (healthResults.isEmpty()) return null;
+            
+            Map<String, Object> health = healthResults.get(0);
+            Double currentWeight = health.get("weight") != null ? ((Number)health.get("weight")).doubleValue() : null;
+            Double targetWeight = health.get("target_weight") != null ? ((Number)health.get("target_weight")).doubleValue() : null;
+            
+            if (currentWeight == null || targetWeight == null) return null;
+            
+            // 获取最新体重记录
+            String weightSql = "SELECT weight FROM diet_weight_record WHERE user_id = ? ORDER BY record_date DESC LIMIT 1";
+            List<Map<String, Object>> weightResults = jdbcTemplate.queryForList(weightSql, userId);
+            
+            Double latestWeight = weightResults.isEmpty() ? currentWeight : 
+                ((Number)weightResults.get(0).get("weight")).doubleValue();
+            
+            // 计算进度
+            double weightDiff = currentWeight - targetWeight;
+            if (Math.abs(weightDiff) < 0.1) return 100.0; // 已达目标
+            
+            double progress = ((currentWeight - latestWeight) / weightDiff) * 100;
+            return Math.max(0, Math.min(progress, 100));
+            
+        } catch (Exception e) {
+            logger.warn("计算体重进度失败: {}", e.getMessage());
+            return null;
+        }
+    }
+    
+    // ========== 体重记录 API ==========
+    
+    /**
+     * 添加体重记录
+     */
+    @PostMapping("/weight")
+    @Log(title = "添加体重记录", businessType = BusinessType.INSERT)
+    public AjaxResult addWeightRecord(@RequestBody Map<String, Object> params) {
+        try {
+            Long userId = getCurrentUserId();
+            Double weight = params.get("weight") != null ? ((Number)params.get("weight")).doubleValue() : null;
+            String notes = (String) params.get("notes");
+            String dateStr = (String) params.get("date");
+            
+            if (weight == null || weight <= 0) {
+                return error("请输入有效的体重");
+            }
+            
+            // 默认今天
+            String recordDate = dateStr != null ? dateStr : new java.text.SimpleDateFormat("yyyy-MM-dd").format(new Date());
+            
+            // 使用 INSERT ... ON DUPLICATE KEY UPDATE 处理当天重复记录
+            String sql = "INSERT INTO diet_weight_record (user_id, weight, record_date, notes) " +
+                        "VALUES (?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE weight = VALUES(weight), notes = VALUES(notes)";
+            
+            jdbcTemplate.update(sql, userId, weight, recordDate, notes);
+            
+            // 同时更新 sys_user_health 中的当前体重
+            String updateHealthSql = "UPDATE sys_user_health SET weight = ? WHERE user_id = ?";
+            jdbcTemplate.update(updateHealthSql, weight, userId);
+            
+            return success("体重记录成功");
+        } catch (Exception e) {
+            logger.error("添加体重记录失败", e);
+            return error("添加失败：" + e.getMessage());
+        }
+    }
+    
+    /**
+     * 获取体重历史
+     */
+    @GetMapping("/weight/history")
+    public AjaxResult getWeightHistory(@RequestParam(defaultValue = "30") int days) {
+        try {
+            Long userId = getCurrentUserId();
+            
+            String sql = "SELECT record_id, weight, record_date, notes, create_time " +
+                        "FROM diet_weight_record " +
+                        "WHERE user_id = ? AND record_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) " +
+                        "ORDER BY record_date DESC";
+            
+            List<Map<String, Object>> records = jdbcTemplate.queryForList(sql, userId, days);
+            
+            return success(records);
+        } catch (Exception e) {
+            logger.error("获取体重历史失败", e);
+            return error("获取失败：" + e.getMessage());
+        }
+    }
+    
+    /**
+     * 获取体重变化趋势
+     */
+    @GetMapping("/weight/trend")
+    public AjaxResult getWeightTrend() {
+        try {
+            Long userId = getCurrentUserId();
+            
+            // 获取首次记录的体重
+            String firstSql = "SELECT weight, record_date FROM diet_weight_record " +
+                             "WHERE user_id = ? ORDER BY record_date ASC LIMIT 1";
+            List<Map<String, Object>> firstResults = jdbcTemplate.queryForList(firstSql, userId);
+            
+            // 获取最新体重
+            String latestSql = "SELECT weight, record_date FROM diet_weight_record " +
+                              "WHERE user_id = ? ORDER BY record_date DESC LIMIT 1";
+            List<Map<String, Object>> latestResults = jdbcTemplate.queryForList(latestSql, userId);
+            
+            // 获取目标体重
+            String goalSql = "SELECT weight AS initial_weight, target_weight FROM sys_user_health WHERE user_id = ? LIMIT 1";
+            List<Map<String, Object>> goalResults = jdbcTemplate.queryForList(goalSql, userId);
+            
+            Map<String, Object> trend = new HashMap<>();
+            
+            Double firstWeight = firstResults.isEmpty() ? null : ((Number)firstResults.get(0).get("weight")).doubleValue();
+            Double latestWeight = latestResults.isEmpty() ? null : ((Number)latestResults.get(0).get("weight")).doubleValue();
+            Double targetWeight = goalResults.isEmpty() || goalResults.get(0).get("target_weight") == null ? 
+                null : ((Number)goalResults.get(0).get("target_weight")).doubleValue();
+            Double initialWeight = goalResults.isEmpty() || goalResults.get(0).get("initial_weight") == null ? 
+                null : ((Number)goalResults.get(0).get("initial_weight")).doubleValue();
+            
+            trend.put("firstWeight", firstWeight);
+            trend.put("latestWeight", latestWeight);
+            trend.put("targetWeight", targetWeight);
+            trend.put("initialWeight", initialWeight);
+            
+            // 计算累计变化
+            if (firstWeight != null && latestWeight != null) {
+                trend.put("totalChange", Math.round((firstWeight - latestWeight) * 10) / 10.0);
+            } else if (initialWeight != null && latestWeight != null) {
+                trend.put("totalChange", Math.round((initialWeight - latestWeight) * 10) / 10.0);
+            } else {
+                trend.put("totalChange", 0.0);
+            }
+            
+            // 计算达成率
+            if (firstWeight != null && latestWeight != null && targetWeight != null && firstWeight > targetWeight) {
+                double progress = ((firstWeight - latestWeight) / (firstWeight - targetWeight)) * 100;
+                trend.put("progressPercent", Math.max(0, Math.min(Math.round(progress), 100)));
+            } else {
+                trend.put("progressPercent", 0);
+            }
+            
+            return success(trend);
+        } catch (Exception e) {
+            logger.error("获取体重趋势失败", e);
+            return error("获取失败：" + e.getMessage());
+        }
+    }
+    
+    /**
+     * 计算体重变化（改进版：基于实际体重记录）
+     */
+    private Double calculateWeightLoss(Long userId) {
+        try {
+            // 先尝试从体重记录表获取
+            String sql = "SELECT " +
+                        "(SELECT weight FROM diet_weight_record WHERE user_id = ? ORDER BY record_date ASC LIMIT 1) AS first_weight, " +
+                        "(SELECT weight FROM diet_weight_record WHERE user_id = ? ORDER BY record_date DESC LIMIT 1) AS latest_weight";
+            
+            List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, userId, userId);
+            
+            if (!results.isEmpty()) {
+                Object first = results.get(0).get("first_weight");
+                Object latest = results.get(0).get("latest_weight");
+                
+                if (first != null && latest != null) {
+                    double firstWeight = ((Number)first).doubleValue();
+                    double latestWeight = ((Number)latest).doubleValue();
+                    double change = firstWeight - latestWeight;
+                    
+                    // 返回减重值（正数表示减重，负数表示增重）
+                    return Math.round(change * 10) / 10.0;
+                }
+            }
+            
+            // 如果没有体重记录，返回0
+            return 0.0;
+            
+        } catch (Exception e) {
+            logger.warn("计算体重变化失败: {}", e.getMessage());
+            return 0.0;
         }
     }
 }

@@ -62,7 +62,6 @@ const NewHomePage: React.FC = () => {
   const handleQuickGeneratePlan = async () => {
     try {
       setGeneratingPlan(true);
-      const token = document.cookie.split('; ').find(row => row.startsWith('Admin-Token='))?.split('=')[1];
 
       const response: any = await api.post('/api/user/diet/daily-plan', {});
 
@@ -308,7 +307,7 @@ const NewHomePage: React.FC = () => {
                   {data.todayRecords.map((record, index) => (
                     <div key={index} className="relative pl-14 group">
                       <div className="absolute left-3 top-3 w-6 h-6 bg-white border-4 border-primary-100 rounded-full z-10 group-hover:border-primary-400 transition-colors"></div>
-                      <div className="bg-gray-50 rounded-xl p-4 hover:bg-white hover:shadow-md transition-all border border-gray-100 group-hover:border-primary-100 cursor-pointer" onClick={() => setSelectedFood(record.notes)}>
+                      <div className="bg-gray-50 rounded-xl p-4 hover:bg-white hover:shadow-md transition-all border border-gray-100 group-hover:border-primary-100 cursor-pointer" onClick={() => navigate('/diet-log')}>
                         <div className="flex justify-between items-start">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
@@ -316,7 +315,25 @@ const NewHomePage: React.FC = () => {
                               <span className="font-bold text-gray-900">{mealTypeNames[record.mealType]}</span>
                               <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full">已记录</span>
                             </div>
-                            <p className="text-gray-600 font-medium">{record.notes}</p>
+                            <div className="text-gray-600 font-medium flex flex-wrap gap-1">
+                              {record.notes?.split(/[,，、]/).map((food: string, idx: number) => {
+                                const cleanFood = food.trim().replace(/^(早餐|午餐|晚餐|加餐)[::：]\s*/, '');
+                                if (!cleanFood) return null;
+                                // 估算分量
+                                const name = cleanFood;
+                                let portion = 100;
+                                if (name.includes('饭') || name.includes('面') || name.includes('粥')) portion = 200;
+                                else if (name.includes('汤') || name.includes('水') || name.includes('奶') || name.includes('茶')) portion = 250;
+                                else if (name.includes('菜') || name.includes('瓜') || name.includes('萝卜')) portion = 150;
+                                else if (name.includes('肉') || name.includes('鱼') || name.includes('鸡')) portion = 100;
+                                else if (name.includes('蛋')) portion = 50;
+                                return (
+                                  <span key={idx} className="bg-gray-100 px-2 py-0.5 rounded text-sm">
+                                    {cleanFood}<span className="text-gray-400 ml-1 text-xs">{portion}g</span>
+                                  </span>
+                                );
+                              })}
+                            </div>
                           </div>
                           <div className="text-right">
                             <span className="text-lg font-bold text-primary-600">{record.totalCalories}</span>
@@ -328,23 +345,35 @@ const NewHomePage: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-16 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                  <div className="text-4xl mb-4 opacity-50">📝</div>
-                  <p className="text-gray-500">今天还没有记录每一餐哦</p>
-                  <Button
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => navigate('/diet-log')}
-                  >
-                    开始记录
-                  </Button>
+                <div className="py-8">
+                  {/* 当前时段建议 */}
+                  <div className="text-center mb-6">
+                    <div className="text-5xl mb-3">
+                      {new Date().getHours() < 10 ? '🌅' : new Date().getHours() < 14 ? '☀️' : new Date().getHours() < 18 ? '🌤️' : '🌙'}
+                    </div>
+                    <h4 className="text-lg font-bold text-gray-800 mb-1">
+                      {new Date().getHours() < 10 ? '早餐时间' : new Date().getHours() < 14 ? '午餐时间' : new Date().getHours() < 18 ? '下午茶时间' : '晚餐时间'}
+                    </h4>
+                    <p className="text-gray-500 text-sm">今天还没有记录，来添加第一餐吧！</p>
+                  </div>
+
+                  {/* 操作按钮 */}
+                  <div className="flex gap-3 justify-center">
+                    <Button onClick={() => navigate('/diet-log')}>
+                      📝 手动记录饮食
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate('/smart-recommendation')}>
+                      🤖 获取 AI 推荐
+                    </Button>
+                  </div>
                 </div>
               )}
             </Card>
           </div>
 
-          <div className="lg:col-span-1">
-            <Card className="h-full bg-gradient-to-b from-blue-50 to-white border-blue-100">
+          <div className="lg:col-span-1 space-y-4">
+            {/* 健康贴士卡片 */}
+            <Card className="bg-gradient-to-b from-blue-50 to-white border-blue-100">
               <h3 className="text-lg font-bold text-gray-900 mb-4">健康贴士</h3>
               <div className="bg-white rounded-xl p-4 shadow-sm border border-blue-100 mb-4">
                 <div className="text-blue-500 font-bold mb-1 text-sm">💡 每日一贴</div>
@@ -352,6 +381,7 @@ const NewHomePage: React.FC = () => {
                   保持充足的水分摄入（约2000ml/天）有助于提升新陈代谢，加速脂肪燃烧。
                 </p>
               </div>
+
               {/* 更多功能入口 */}
               <div className="space-y-2">
                 <Button variant="ghost" className="w-full justify-start text-gray-600 hover:text-primary-600 hover:bg-white" onClick={() => navigate('/health-goal')}>

@@ -19,8 +19,6 @@ const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ foodName, onClose }) 
 
   const loadFoodDetail = async () => {
     try {
-      const token = document.cookie.split('; ').find(row => row.startsWith('Admin-Token='))?.split('=')[1];
-
       // 从notes中提取第一个食物名称（去除"早餐:"等前缀）
       let cleanFoodName = foodName;
       if (foodName.includes(':')) {
@@ -35,21 +33,50 @@ const FoodDetailModal: React.FC<FoodDetailModalProps> = ({ foodName, onClose }) 
         cleanFoodName = foodName.split(',')[0].trim();
       }
 
-      // 查询食物营养数据
-      const nutritionResponse: any = await api.get('/api/user/diet/foods');
+      // 使用模糊搜索 API 查询食物
+      const searchResponse: any = await api.get('/api/user/diet/foods/search', {
+        params: { keyword: cleanFoodName }
+      });
 
-      if (nutritionResponse.code === 200 && nutritionResponse.data) {
-        const food = nutritionResponse.data.data.find((f: any) => f.foodName === cleanFoodName);
-        if (food) {
-          setFoodData(food);
-          generatePairings(food);
+      let food = null;
 
-          // 查询食物详细信息（功效等）
-          const infoResponse: any = await api.get(`/api/user/diet/food-info/${food.foodId}`);
+      if (searchResponse.code === 200 && searchResponse.data) {
+        const foods = searchResponse.data.data || searchResponse.data;
 
+        // 优先查找精确匹配
+        food = foods.find((f: any) => f.foodName === cleanFoodName);
+
+        // 如果没有精确匹配，使用第一个搜索结果（模糊匹配）
+        if (!food && foods.length > 0) {
+          food = foods[0];
+        }
+      }
+
+      // 如果模糊搜索没有结果，尝试部分匹配
+      if (!food) {
+        const allFoodsResponse: any = await api.get('/api/user/diet/foods');
+        if (allFoodsResponse.code === 200 && allFoodsResponse.data) {
+          const allFoods = allFoodsResponse.data.data || allFoodsResponse.data;
+          // 查找食物名称包含搜索关键词的结果
+          food = allFoods.find((f: any) =>
+            f.foodName && (f.foodName.includes(cleanFoodName) || cleanFoodName.includes(f.foodName))
+          );
+        }
+      }
+
+      if (food) {
+        setFoodData(food);
+        generatePairings(food);
+
+        // 查询食物详细信息（功效等）
+        try {
+          const infoResponse: any = await api.get(`/api/user/diet/foods/${food.foodId}`);
           if (infoResponse.code === 200 && infoResponse.data) {
             setFoodInfo(infoResponse.data);
           }
+        } catch (e) {
+          // 详细信息获取失败不影响主体显示
+          console.log('食物详细信息加载失败，使用基本信息');
         }
       }
     } catch (error) {

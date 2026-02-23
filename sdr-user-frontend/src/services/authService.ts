@@ -10,6 +10,7 @@ const API_BASE_URL = ''; // 为空则使用当前域名，走devServer代理
 const authApi = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
+  withCredentials: true, // 支持跨域cookie
 });
 
 // 请求拦截器

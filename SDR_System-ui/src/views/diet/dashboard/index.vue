@@ -85,20 +85,6 @@
           <div v-if="isAdmin" class="admin-actions">
             <el-divider content-position="center">管理员功能</el-divider>
             <el-button 
-              type="danger" 
-              icon="el-icon-s-custom" 
-              size="small" 
-              @click="$router.push('/diet/admin/users')"
-              plain
-            >用户管理</el-button>
-            <el-button 
-              type="danger" 
-              icon="el-icon-pie-chart" 
-              size="small" 
-              @click="$router.push('/diet/admin/stats')"
-              plain
-            >系统统计</el-button>
-            <el-button 
               type="warning" 
               icon="el-icon-cpu" 
               size="small" 
@@ -199,7 +185,7 @@
 
 <script>
 import { recognizeFood } from '@/api/diet/record'
-import { generateDailyRecommendation } from '@/api/diet/recommendation'
+
 import { 
   getTodayOverview, 
   getTodayMeals, 

@@ -53,7 +53,11 @@ public class SysUserHealthController extends BaseController
                                           @RequestParam(required = false) String healthGoal) {
         try {
             StringBuilder sql = new StringBuilder();
-            sql.append("SELECT h.*, u.user_name AS userName ");
+            sql.append("SELECT h.health_id AS healthId, h.user_id AS userId, h.gender, h.age, h.height, h.weight, ");
+            sql.append("h.target_weight AS targetWeight, h.health_goal AS healthGoal, h.daily_calorie_goal AS dailyCalorieGoal, ");
+            sql.append("h.daily_protein_goal AS dailyProteinGoal, h.daily_fat_goal AS dailyFatGoal, h.daily_carb_goal AS dailyCarbGoal, ");
+            sql.append("h.diseases, h.allergies, h.diet_preferences AS dietPreferences, h.create_time AS createTime, h.update_time AS updateTime, ");
+            sql.append("u.user_name AS userName ");
             sql.append("FROM sys_user_health h ");
             sql.append("LEFT JOIN sys_user u ON h.user_id = u.user_id ");
             sql.append("WHERE 1=1 ");
