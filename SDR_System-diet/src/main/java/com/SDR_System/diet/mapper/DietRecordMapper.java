@@ -89,4 +89,22 @@ public interface DietRecordMapper
      * @return 营养统计信息
      */
     public DietRecord selectNutritionSummaryByUserIdAndDateRange(@Param("userId") Long userId, @Param("startDate") Date startDate, @Param("endDate") Date endDate);
+
+    /**
+     * 【大盘专供】获取全站今日新增饮食记录数
+     * @return 数量
+     */
+    public int selectGlobalTodayRecordsCount();
+
+    /**
+     * 【大盘专供】获取全站近10日每天产生的饮食流水数
+     * @return map list
+     */
+    public List<java.util.Map<String, Object>> selectGlobalRecent10DaysRecordStats();
+
+    /**
+     * 【大盘专供】获取全网最高频上报的 5 大食物种类
+     * @return map list
+     */
+    public List<java.util.Map<String, Object>> selectGlobalTop5HotFoods();
 }

@@ -68,10 +68,16 @@ const user = {
             avatar = (isEmpty(avatar)) ? defAva : process.env.VUE_APP_BASE_API + avatar
           }
           if (res.roles && res.roles.length > 0) { // 验证返回的roles是否是一个非空数组
+            // 校验：如果是纯普通用户（前台注册），禁止其登录系统后台
+            if (res.roles.length === 1 && res.roles[0] === 'common') {
+              reject('权限不足，普通用户无法登录系统后台！')
+              return
+            }
             commit('SET_ROLES', res.roles)
             commit('SET_PERMISSIONS', res.permissions)
           } else {
-            commit('SET_ROLES', ['ROLE_DEFAULT'])
+            reject('无角色分配，禁止登录系统后台！')
+            return
           }
           commit('SET_ID', user.userId)
           commit('SET_NAME', user.userName)

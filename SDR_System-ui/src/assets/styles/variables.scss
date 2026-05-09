@@ -1,25 +1,25 @@
 // base color
-$blue:#324157;
-$light-blue:#3A71A8;
-$red:#C03639;
-$pink: #E65D6E;
-$green: #30B08F;
-$tiffany: #4AB7BD;
-$yellow:#FEC171;
-$panGreen: #30B08F;
+$blue: #4f46e5; // Indigo-600 现代高级紫蓝
+$light-blue: #6366f1; // Indigo-500
+$red: #ef4444; // Red-500
+$pink: #ec4899; // Pink-500
+$green: #10b981; // Emerald-500 现代明绿
+$tiffany: #0ea5e9; // Sky-500
+$yellow: #f59e0b; // Amber-500
+$panGreen: #10b981;
 
-// 默认菜单主题风格
-$base-menu-color:#bfcbd9;
-$base-menu-color-active:#f4f4f5;
-$base-menu-background:#304156;
+// 现代深邃极客菜单风格 (Slate 系)
+$base-menu-color: #cbd5e1; // Slate-300 提高对比度亮度以便于阅读
+$base-menu-color-active: #ffffff;
+$base-menu-background: #0f172a; // Slate-900 极深色
 $base-logo-title-color: #ffffff;
 
-$base-menu-light-color:rgba(0,0,0,.70);
-$base-menu-light-background:#ffffff;
-$base-logo-light-title-color: #001529;
+$base-menu-light-color: #475569; // Slate-600
+$base-menu-light-background: #ffffff;
+$base-logo-light-title-color: #0f172a;
 
-$base-sub-menu-background:#1f2d3d;
-$base-sub-menu-hover:#001528;
+$base-sub-menu-background: #020617; // Slate-950 更深的下沉空间
+$base-sub-menu-hover: #1e293b; // Slate-800 悬停提亮
 
 // 自定义暗色菜单风格
 /**

@@ -43,37 +43,3 @@ export function delRecommendation(recommendationId) {
   })
 }
 
-// 智能生成推荐方案
-export function generateRecommendation(data) {
-  return request({
-    url: '/diet/recommendation/generate',
-    method: 'post',
-    data: data
-  })
-}
-
-// 应用推荐方案
-export function applyRecommendation(recommendationId) {
-  return request({
-    url: '/diet/recommendation/apply/' + recommendationId,
-    method: 'post'
-  })
-}
-
-// 获取每日推荐
-export function getDailyRecommendation(date) {
-  return request({
-    url: '/diet/recommendation/daily',
-    method: 'get',
-    params: { date }
-  })
-}
-
-// 生成每日推荐
-export function generateDailyRecommendation(date) {
-  return request({
-    url: '/diet/recommendation/daily/generate',
-    method: 'post',
-    data: { date }
-  })
-}

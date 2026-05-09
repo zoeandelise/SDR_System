@@ -21,7 +21,7 @@ const SimpleLoginPage: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!loginForm.username || !loginForm.password) {
       setMessage('请输入用户名和密码');
       return;
@@ -38,7 +38,7 @@ const SimpleLoginPage: React.FC = () => {
 
       await login(params);
       navigate('/', { replace: true });
-      
+
     } catch (error: any) {
       console.error('登录失败:', error);
       setMessage(error.message || '登录失败，请检查用户名和密码');
@@ -81,7 +81,7 @@ const SimpleLoginPage: React.FC = () => {
               <input
                 type="text"
                 value={loginForm.username}
-                onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
+                onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 placeholder="请输入用户名"
               />
@@ -94,7 +94,7 @@ const SimpleLoginPage: React.FC = () => {
               <input
                 type="password"
                 value={loginForm.password}
-                onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 placeholder="请输入密码"
               />

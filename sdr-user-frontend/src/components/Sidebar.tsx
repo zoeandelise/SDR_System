@@ -1,17 +1,16 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Calendar, 
-  BarChart3, 
-  BookOpen, 
-  Target, 
-  Settings, 
+import {
+  Home,
+  Calendar,
+  BarChart3,
+  Target,
+  Settings,
   Apple,
   Users,
-  Star,
   TrendingUp,
-  X
+  X,
+  Flame
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { cn } from '../lib/utils';
@@ -31,16 +30,15 @@ interface NavItem {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
-  
+
   const navigationItems: NavItem[] = [
     { icon: <Home className="h-5 w-5" />, label: '首页', href: '/' },
+    { icon: <Flame className="h-5 w-5" />, label: '打卡', href: '/checkin', badge: '热' },
     { icon: <Calendar className="h-5 w-5" />, label: '饮食记录', href: '/diet-log' },
     { icon: <Apple className="h-5 w-5" />, label: '食物库', href: '/food-database' },
     { icon: <Target className="h-5 w-5" />, label: '营养目标', href: '/nutrition-goals' },
     { icon: <BarChart3 className="h-5 w-5" />, label: '健康报告', href: '/health-report' },
-    { icon: <BookOpen className="h-5 w-5" />, label: '食谱推荐', href: '/recipes', badge: '新' },
     { icon: <Users className="h-5 w-5" />, label: '社区', href: '/community' },
-    { icon: <Star className="h-5 w-5" />, label: '我的收藏', href: '/favorites' },
   ];
 
   const quickStats = [
@@ -54,7 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     <>
       {/* Overlay for mobile */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
           onClick={onClose}
         />

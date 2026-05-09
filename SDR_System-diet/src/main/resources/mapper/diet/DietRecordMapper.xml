@@ -135,4 +135,35 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         and r.record_date between #{startDate} and #{endDate}
     </select>
 
+    <!-- 【B端全局大盘】全站今日新增饮食流水条数 -->
+    <select id="selectGlobalTodayRecordsCount" resultType="int">
+        select count(1) from diet_record where date_format(create_time,'%Y-%m-%d') = date_format(now(),'%Y-%m-%d')
+    </select>
+
+    <!-- 【B端全局大盘】近10日系统内每天产生的记录流水量折线图底数据 -->
+    <select id="selectGlobalRecent10DaysRecordStats" resultType="java.util.Map">
+        select date_format(record_date,'%Y-%m-%d') as `date`, count(1) as `count`
+        from diet_record
+        where record_date >= date_sub(curdate(), interval 9 day)
+        group by date_format(record_date,'%Y-%m-%d')
+        order by `date` asc
+    </select>
+
+    <!-- 【B端全局大盘】全网饮食项 TOP 5 大盘频次分布图底数据（通过食物名粗略排查聚合） -->
+    <select id="selectGlobalTop5HotFoods" resultType="java.util.Map">
+        SELECT 
+            TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(r.notes, '、', numbers.n), '、', -1)) AS name,
+            COUNT(*) AS value
+        FROM diet_record r
+        JOIN (
+            SELECT 1 n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
+        ) numbers
+        ON CHAR_LENGTH(r.notes) - CHAR_LENGTH(REPLACE(r.notes, '、', '')) >= numbers.n - 1
+        WHERE r.notes IS NOT NULL AND r.notes != ''
+        GROUP BY name
+        HAVING name != ''
+        ORDER BY value DESC
+        LIMIT 5
+    </select>
+
 </mapper>

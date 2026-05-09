@@ -24,16 +24,16 @@ echo ========================================
 rem 1. 启动后端服务
 echo.
 echo [1/4] 启动后端服务...
-start "后端服务" cmd /k "echo 后端服务启动中... && java -jar SDR_System-admin.jar"
+start "后端服务" cmd /k "chcp 65001 > nul && set JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8 && cd SDR_System-admin && echo 后端服务启动中(使用Maven)... && mvn spring-boot:run"
 echo ✓ 后端服务启动命令已执行
 
-rem 等待后端服务启动
-timeout /t 10 /nobreak > nul
+rem 等待后端服务启动 (Maven初次启动较慢)
+timeout /t 15 /nobreak > nul
 
 rem 2. 启动机器学习服务
 echo.
 echo [2/4] 启动机器学习服务...
-start "ML服务" cmd /k "cd SDR_System-ml && echo ML服务启动中... && python start_ml_service.py"
+start "ML服务" cmd /k "chcp 65001 > nul && cd SDR_System-ml && echo ML服务启动中... && python start_ml_service.py"
 echo ✓ ML服务启动命令已执行
 
 rem 等待ML服务启动
@@ -42,7 +42,7 @@ timeout /t 5 /nobreak > nul
 rem 3. 启动管理员前端
 echo.
 echo [3/4] 启动管理员前端...
-start "管理员前端" cmd /k "cd SDR_System-ui && echo 管理员前端启动中... && npm run dev"
+start "管理员前端" cmd /k "chcp 65001 > nul && cd SDR_System-ui && echo 管理员前端启动中... && npm run dev"
 echo ✓ 管理员前端启动命令已执行
 
 rem 等待前端服务启动
@@ -51,7 +51,7 @@ timeout /t 5 /nobreak > nul
 rem 4. 启动用户端前端
 echo.
 echo [4/4] 启动用户端前端...
-start "用户端前端" cmd /k "cd sdr-user-frontend && echo 用户端前端启动中... && npm start"
+start "用户端前端" cmd /k "chcp 65001 > nul && cd sdr-user-frontend && echo 用户端前端启动中... && npm start"
 echo ✓ 用户端前端启动命令已执行
 
 echo.

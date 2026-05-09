@@ -1,9 +1,10 @@
 // API服务配置
 import axios, { AxiosResponse } from 'axios';
 import { env, API_ENDPOINTS, buildApiUrl } from '../config/environment';
-import type { 
-  RuoYiResponse, 
-  AuthResponse, 
+import { getToken } from '../utils/auth';
+import type {
+  RuoYiResponse,
+  AuthResponse,
   SystemStatusResponse,
   HealthStatus,
   DashboardData,
@@ -40,15 +41,15 @@ let retryCount = 0;
 // 请求拦截器
 api.interceptors.request.use(
   (config: any) => {
-    // 添加认证token（从Cookies读取，与authService保持一致）
-    const token = document.cookie.split('; ').find(row => row.startsWith('Admin-Token='))?.split('=')[1];
+    // 添加认证token（使用统一的getToken方法）
+    const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     // 添加请求ID用于追踪
     config.headers['X-Request-ID'] = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     // 添加时间戳防止缓存
     if (config.method === 'get') {
       config.params = {
@@ -56,14 +57,14 @@ api.interceptors.request.use(
         _t: Date.now()
       };
     }
-    
+
     console.log('🚀 API Request:', {
       method: config.method?.toUpperCase(),
       url: config.url,
       headers: config.headers,
       data: config.data
     });
-    
+
     return config;
   },
   (error: any) => {
@@ -82,10 +83,10 @@ api.interceptors.response.use(
       status: response.status,
       data: response.data
     });
-    
+
     // 重置重试计数
     retryCount = 0;
-    
+
     // 若依框架的响应格式处理
     if (response.data && typeof response.data === 'object') {
       // 成功响应
@@ -100,7 +101,7 @@ api.interceptors.response.use(
         throw error;
       }
     }
-    
+
     return response.data;
   },
   async (error: any) => {
@@ -111,23 +112,23 @@ api.interceptors.response.use(
       status: error.response?.status,
       message: error.message
     });
-    
+
     // 网络错误重试逻辑
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
       if (retryCount < API_CONFIG.retryAttempts) {
         retryCount++;
         console.log(`🔄 重试请求 ${retryCount}/${API_CONFIG.retryAttempts}:`, error.config?.url);
-        
+
         // 延迟后重试
         await new Promise(resolve => setTimeout(resolve, API_CONFIG.retryDelay * retryCount));
         return api.request(error.config);
       }
     }
-    
+
     // HTTP状态码错误处理
     if (error.response) {
       const { status, data } = error.response;
-      
+
       switch (status) {
         case 401:
           // 未授权，清除token并跳转到登录页
@@ -138,24 +139,24 @@ api.interceptors.response.use(
             window.location.href = '/login';
           }
           throw new Error('登录已过期，请重新登录');
-          
+
         case 403:
           throw new Error('没有权限访问此资源');
-          
+
         case 404:
           throw new Error('请求的资源不存在');
-          
+
         case 429:
           throw new Error('请求过于频繁，请稍后再试');
-          
+
         case 500:
           throw new Error('服务器内部错误，请联系管理员');
-          
+
         case 502:
         case 503:
         case 504:
           throw new Error('服务暂时不可用，请稍后再试');
-          
+
         default:
           throw new Error(data?.msg || `请求失败 (HTTP ${status})`);
       }
@@ -182,12 +183,28 @@ api.interceptors.response.use(
 
 export const dashboardApi = {
   // 获取仪表板数据
-  getDashboardData: (): Promise<RuoYiResponse<DashboardData>> => 
+  getDashboardData: (): Promise<RuoYiResponse<DashboardData>> =>
     api.get(API_ENDPOINTS.diet.dashboard),
-  
+
   // 获取今日营养摄入
-  getTodayNutrition: (): Promise<RuoYiResponse<any>> => 
+  getTodayNutrition: (): Promise<RuoYiResponse<any>> =>
     api.get(API_ENDPOINTS.diet.todayNutrition),
+};
+
+// =================== 打卡API (Phase 25) ===================
+
+export const checkinApi = {
+  // 执行打卡
+  doCheckin: (params: { mood?: string; note?: string } = {}): Promise<RuoYiResponse<any>> =>
+    api.post(API_ENDPOINTS.diet.checkin, params),
+
+  // 获取打卡状态
+  getStatus: (): Promise<RuoYiResponse<any>> =>
+    api.get(API_ENDPOINTS.diet.checkinStatus),
+
+  // 获取排行榜
+  getRanking: (): Promise<RuoYiResponse<any>> =>
+    api.get(API_ENDPOINTS.diet.checkinRanking),
 };
 
 // =================== 饮食记录API ===================
@@ -204,32 +221,32 @@ export const dietRecordApi = {
     }
     return api.get(API_ENDPOINTS.diet.records, { params: transformedParams });
   },
-  
+
   // 添加饮食记录
   addRecord: (data: Partial<DietRecord>): Promise<RuoYiResponse<DietRecord>> => {
     // 数据转换：前端格式转换为后端期望格式
     const transformedData = transformDietRecordForBackend(data);
     return api.post(API_ENDPOINTS.diet.records, transformedData);
   },
-  
+
   // 更新饮食记录
   updateRecord: (recordId: number, data: Partial<DietRecord>): Promise<RuoYiResponse<DietRecord>> => {
     const transformedData = transformDietRecordForBackend(data);
     return api.put(`${API_ENDPOINTS.diet.records}/${recordId}`, transformedData);
   },
-  
+
   // 删除饮食记录
-  deleteRecord: (recordId: number): Promise<RuoYiResponse<void>> => 
+  deleteRecord: (recordId: number): Promise<RuoYiResponse<void>> =>
     api.delete(`${API_ENDPOINTS.diet.records}/${recordId}`),
-  
+
   // 获取统计报告
-  getStatistics: (startDate: string, endDate: string): Promise<RuoYiResponse<any>> => 
+  getStatistics: (startDate: string, endDate: string): Promise<RuoYiResponse<any>> =>
     api.get(API_ENDPOINTS.diet.statistics, {
       params: { startDate, endDate }
     }),
-  
+
   // 获取健康趋势
-  getHealthTrends: (days: number = 30): Promise<RuoYiResponse<any>> => 
+  getHealthTrends: (days: number = 30): Promise<RuoYiResponse<any>> =>
     api.get(API_ENDPOINTS.diet.trends, {
       params: { days }
     }),
@@ -243,48 +260,48 @@ export const foodApi = {
     const response = await api.get(API_ENDPOINTS.foods.search, {
       params: { keyword }
     }) as RuoYiResponse<any[]>;
-    
+
     // 数据转换
     if (response.data && Array.isArray(response.data)) {
       response.data = response.data.map(transformFoodInfoFromBackend);
     }
-    
+
     return response as RuoYiResponse<FoodInfo[]>;
   },
-  
+
   // 根据分类获取食物
   getFoodsByCategory: async (categoryId: number): Promise<RuoYiResponse<FoodInfo[]>> => {
     const response = await api.get(`${API_ENDPOINTS.foods.category}/${categoryId}`) as RuoYiResponse<any[]>;
-    
+
     // 数据转换
     if (response.data && Array.isArray(response.data)) {
       response.data = response.data.map(transformFoodInfoFromBackend);
     }
-    
+
     return response as RuoYiResponse<FoodInfo[]>;
   },
-  
+
   // 获取所有食物
   getAllFoods: async (params: any = {}): Promise<RuoYiResponse<FoodInfo[]>> => {
     const response = await api.get(API_ENDPOINTS.foods.list, { params }) as RuoYiResponse<any[]>;
-    
+
     // 数据转换
     if (response.data && Array.isArray(response.data)) {
       response.data = response.data.map(transformFoodInfoFromBackend);
     }
-    
+
     return response as RuoYiResponse<FoodInfo[]>;
   },
-  
+
   // 获取食物详情
   getFoodDetail: async (foodId: number): Promise<RuoYiResponse<FoodInfo>> => {
     const response = await api.get(`${API_ENDPOINTS.foods.detail}/${foodId}`) as RuoYiResponse<any>;
-    
+
     // 数据转换
     if (response.data) {
       response.data = transformFoodInfoFromBackend(response.data);
     }
-    
+
     return response as RuoYiResponse<FoodInfo>;
   },
 };
@@ -296,7 +313,7 @@ export const aiApi = {
   recognizeFood: (imageFile: File): Promise<RuoYiResponse<RecognitionResult>> => {
     const formData = new FormData();
     formData.append('image', imageFile);
-    
+
     return api.post(API_ENDPOINTS.ai.recognize, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -309,22 +326,22 @@ export const aiApi = {
 
 export const authApi = {
   // 登录
-  login: (username: string, password: string): Promise<RuoYiResponse<AuthResponse>> => 
+  login: (username: string, password: string): Promise<RuoYiResponse<AuthResponse>> =>
     api.post(API_ENDPOINTS.auth.login, {
       username,
       password
     }),
-  
+
   // 登出
-  logout: (): Promise<RuoYiResponse<void>> => 
+  logout: (): Promise<RuoYiResponse<void>> =>
     api.post(API_ENDPOINTS.auth.logout),
-  
+
   // 获取用户信息
-  getUserInfo: (): Promise<RuoYiResponse<AuthResponse>> => 
+  getUserInfo: (): Promise<RuoYiResponse<AuthResponse>> =>
     api.get(API_ENDPOINTS.auth.getUserInfo),
-  
+
   // 注册
-  register: (userData: any): Promise<RuoYiResponse<void>> => 
+  register: (userData: any): Promise<RuoYiResponse<void>> =>
     api.post(API_ENDPOINTS.auth.register, userData),
 };
 
@@ -335,24 +352,24 @@ export const commonApi = {
   uploadFile: (file: File): Promise<RuoYiResponse<UploadResponse>> => {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     return api.post(API_ENDPOINTS.common.upload, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       }
     });
   },
-  
+
   // 获取验证码
-  getCaptcha: (): Promise<RuoYiResponse<CaptchaResponse>> => 
+  getCaptcha: (): Promise<RuoYiResponse<CaptchaResponse>> =>
     api.get(API_ENDPOINTS.auth.captcha),
-  
+
   // 系统健康检查
-  healthCheck: (): Promise<RuoYiResponse<any>> => 
+  healthCheck: (): Promise<RuoYiResponse<any>> =>
     api.get(API_ENDPOINTS.common.health),
-  
+
   // 获取系统信息
-  getSystemInfo: (): Promise<RuoYiResponse<any>> => 
+  getSystemInfo: (): Promise<RuoYiResponse<any>> =>
     api.get(API_ENDPOINTS.common.systemInfo),
 };
 
@@ -368,7 +385,7 @@ export const monitoringApi = {
       return { status: 'unhealthy', error: error.message };
     }
   },
-  
+
   // 检查ML服务状态
   checkMLServiceHealth: async (): Promise<HealthStatus> => {
     try {
@@ -378,32 +395,32 @@ export const monitoringApi = {
       return { status: 'unhealthy', error: error.message };
     }
   },
-  
+
   // 获取系统状态概览
   getSystemStatus: async (): Promise<SystemStatusResponse> => {
     const results = await Promise.allSettled([
       monitoringApi.checkBackendHealth(),
       monitoringApi.checkMLServiceHealth()
     ]);
-    
+
     const processResult = (result: PromiseSettledResult<HealthStatus>): HealthStatus => {
       if (result.status === 'fulfilled') {
         const value = result.value;
         // 确保返回的状态值是正确的类型
         return {
-          status: value.status === 'healthy' ? 'healthy' : 
-                 value.status === 'unhealthy' ? 'unhealthy' : 'error',
+          status: value.status === 'healthy' ? 'healthy' :
+            value.status === 'unhealthy' ? 'unhealthy' : 'error',
           error: value.error,
           data: value.data
         };
       } else {
-        return { 
-          status: 'error' as const, 
-          error: (result.reason as Error)?.message || '检查失败' 
+        return {
+          status: 'error' as const,
+          error: (result.reason as Error)?.message || '检查失败'
         };
       }
     };
-    
+
     return {
       backend: processResult(results[0]),
       mlService: processResult(results[1]),
@@ -423,31 +440,31 @@ export class ConnectionManager {
     this.listeners = [];
     this.setupEventListeners();
   }
-  
+
   private setupEventListeners() {
     window.addEventListener('online', () => {
       this.isOnline = true;
       this.notifyListeners('online');
     });
-    
+
     window.addEventListener('offline', () => {
       this.isOnline = false;
       this.notifyListeners('offline');
     });
   }
-  
+
   addListener(callback: (status: string) => void) {
     this.listeners.push(callback);
   }
-  
+
   removeListener(callback: (status: string) => void) {
     this.listeners = this.listeners.filter(listener => listener !== callback);
   }
-  
+
   private notifyListeners(status: string) {
     this.listeners.forEach(callback => callback(status));
   }
-  
+
   async testConnection(): Promise<boolean> {
     try {
       await api.get('/actuator/health', { timeout: 3000 });
@@ -465,12 +482,12 @@ export const connectionManager = new ConnectionManager();
 
 // 批量请求处理
 export const batchRequest = async (
-  requests: Array<() => Promise<any>>, 
+  requests: Array<() => Promise<any>>,
   options: { concurrent?: number; retryOnFailure?: boolean } = {}
 ): Promise<any[]> => {
   const { concurrent = 3, retryOnFailure = true } = options;
   const results: any[] = [];
-  
+
   for (let i = 0; i < requests.length; i += concurrent) {
     const batch = requests.slice(i, i + concurrent);
     const batchPromises = batch.map(async (request) => {
@@ -489,37 +506,37 @@ export const batchRequest = async (
         return { error: error.message };
       }
     });
-    
+
     const batchResults = await Promise.all(batchPromises);
     results.push(...batchResults);
   }
-  
+
   return results;
 };
 
 // 缓存管理
 export const apiCache = {
   cache: new Map<string, { data: any; expiry: number }>(),
-  
+
   set(key: string, data: any, ttl: number = 5 * 60 * 1000) { // 默认5分钟缓存
     this.cache.set(key, {
       data,
       expiry: Date.now() + ttl
     });
   },
-  
+
   get(key: string): any {
     const item = this.cache.get(key);
     if (!item) return null;
-    
+
     if (Date.now() > item.expiry) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return item.data;
   },
-  
+
   clear() {
     this.cache.clear();
   }
@@ -527,8 +544,8 @@ export const apiCache = {
 
 // 带缓存的API请求
 export const cachedRequest = async <T>(
-  key: string, 
-  requestFn: () => Promise<T>, 
+  key: string,
+  requestFn: () => Promise<T>,
   ttl?: number
 ): Promise<T> => {
   const cached = apiCache.get(key);
@@ -536,7 +553,7 @@ export const cachedRequest = async <T>(
     console.log('📦 使用缓存数据:', key);
     return cached;
   }
-  
+
   const data = await requestFn();
   apiCache.set(key, data, ttl);
   return data;
@@ -547,11 +564,11 @@ export const cachedRequest = async <T>(
 // 将前端DietRecord格式转换为后端期望格式
 export const transformDietRecordForBackend = (data: Partial<DietRecord>): any => {
   const transformed: any = {};
-  
+
   // 基础字段映射
   if (data.recordId !== undefined) transformed.recordId = data.recordId;
   if (data.userId !== undefined) transformed.userId = data.userId;
-  
+
   // 日期处理
   if (data.recordTime) {
     transformed.recordDate = data.recordTime.split('T')[0]; // 取日期部分
@@ -560,34 +577,34 @@ export const transformDietRecordForBackend = (data: Partial<DietRecord>): any =>
   } else {
     transformed.recordDate = new Date().toISOString().split('T')[0];
   }
-  
+
   // 餐次类型转换（前端：字符串 -> 后端：数字字符串）
   if (data.mealType) {
     const mealTypeMap: { [key: string]: string } = {
       'breakfast': '0',
-      'lunch': '1', 
+      'lunch': '1',
       'dinner': '2',
       'snack': '3'
     };
     transformed.mealType = mealTypeMap[data.mealType] || data.mealType;
   }
-  
+
   // 营养信息处理
   transformed.totalCalories = data.totalCalories || data.calories || 0;
   transformed.totalProtein = data.totalProtein || data.protein || 0;
   transformed.totalFat = data.totalFat || data.fat || 0;
   transformed.totalCarbohydrate = data.totalCarbohydrate || data.carbohydrate || 0;
-  
+
   // 其他字段
   if (data.notes !== undefined) transformed.notes = data.notes;
   if (data.imageUrls !== undefined) transformed.imageUrls = data.imageUrls;
   if (data.mongoDocId !== undefined) transformed.mongoDocId = data.mongoDocId;
-  
+
   // 如果有foodName，放在notes中
   if (data.foodName && !transformed.notes) {
     transformed.notes = data.foodName;
   }
-  
+
   return transformed;
 };
 
@@ -596,10 +613,10 @@ export const transformDietRecordFromBackend = (data: any): DietRecord => {
   const mealTypeMap: { [key: string]: string } = {
     '0': 'breakfast',
     '1': 'lunch',
-    '2': 'dinner', 
+    '2': 'dinner',
     '3': 'snack'
   };
-  
+
   return {
     recordId: data.recordId,
     userId: data.userId,
@@ -657,7 +674,7 @@ export const transformFoodInfoFromBackend = (data: any): FoodInfo => {
 // 错误信息本地化
 export const localizeErrorMessage = (error: any): string => {
   if (typeof error === 'string') return error;
-  
+
   const errorMap: { [key: string]: string } = {
     'Network Error': '网络连接失败，请检查网络连接',
     'timeout': '请求超时，请稍后重试',
@@ -666,7 +683,7 @@ export const localizeErrorMessage = (error: any): string => {
     'Request failed with status code 404': '请求的资源不存在',
     'Request failed with status code 500': '服务器内部错误，请稍后重试'
   };
-  
+
   const message = error.message || error.toString();
   return errorMap[message] || message || '操作失败，请重试';
 };

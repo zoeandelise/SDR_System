@@ -108,3 +108,12 @@ export function stopTraining() {
     method: 'post'
   })
 }
+
+// 生成协同过滤的引力场图谱 (Nodes & Links)
+export function getCollaborativeGraph(data) {
+  return request({
+    url: '/diet/ml/test/collaborative-graph',
+    method: 'post',
+    data: data
+  })
+}

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PlantUML 总体ER图防乱码渲染器</title>
+    <!-- 引入 PlantUML 编码器（支持多 CDN 容灾，大幅提升国内加载成功率） -->
+    <script src="https://npm.elemecdn.com/plantuml-encoder@1.4.0/dist/plantuml-encoder.min.js"></script>
+    <script src="https://unpkg.com/plantuml-encoder/dist/plantuml-encoder.min.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            min-height: 0;
+        }
+
+        .left-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .right-panel {
+            flex: 1;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+
+        textarea {
+            flex: 1;
+            padding: 10px;
+            font-family: Consolas, monospace;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: none;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background: #0f3460;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #1a1a2e;
+        }
+
+        button.btn-download {
+            background: #e94560;
+        }
+
+        button.btn-download:hover {
+            background: #c81d3f;
+        }
+
+        .tips {
+            background: #fffbe6;
+            padding: 10px;
+            border-left: 4px solid #faad14;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>🎨 PlantUML 总体E-R图防乱码渲染器</h2>
+    <div class="tips">
+        <strong>为什么会乱码？</strong> 官方网站生成的 PNG 图片是由远端 Linux 服务器画的，服务器缺少中文字体，所以变成方块。<br>
+        <strong>本工具原理：</strong> 本工具向官方请求 <b>SVG矢量代码</b>，交由你自己的浏览器使用本地的“微软雅黑”重新渲染！这样百分之百不会乱码，还可以直接下载！
+    </div>
+    <div class="container">
+        <div class="left-panel">
+            <textarea id="pumlCode" placeholder="将 @startdot ... @enddot 代码粘贴在这里..."></textarea>
+            <div class="actions">
+                <button onclick="renderSVG()">渲染图表</button>
+                <button class="btn-download" onclick="downloadImage()">下载为透明高清PNG</button>
+            </div>
+        </div>
+        <div class="right-panel">
+            <div id="svgContainer" style="display:none; transform-origin: top left;"></div>
+        </div>
+    </div>
+
+    <script>
+        function renderSVG() {
+            if (typeof plantumlEncoder === 'undefined') {
+                alert('JS 依赖库（plantuml-encoder）加载失败！\n\n原因可能是国内网络无法访问 CDN (unpkg.com / jsdelivr)。\n建议：\n1. 连接 VPN 或热点重试\n2. 多刷新几次网页试试');
+                return;
+            }
+            const code = document.getElementById('pumlCode').value.trim();
+            if (!code) { alert('请输入代码！'); return; }
+
+            const encoded = plantumlEncoder.encode(code);
+            const url = 'https://www.plantuml.com/plantuml/svg/' + encoded;
+
+            const container = document.getElementById('svgContainer');
+            container.style.display = 'block';
+            container.innerHTML = '<span style="color:gray">渲染中... 请稍候</span>';
+
+            fetch(url)
+                .then(res => res.text())
+                .then(svgText => {
+                    // PlantUML SVG 中默认带着 font-family="sans-serif"，我们把它强制换成本地微软雅黑
+                    svgText = svgText.replace(/font-family="[^"]*"/g, 'font-family="Microsoft YaHei, SimSun, sans-serif"');
+                    container.innerHTML = svgText;
+                })
+                .catch(err => {
+                    container.innerHTML = '<span style="color:red">渲染失败: ' + err.message + '</span>';
+                });
+        }
+
+        function downloadImage() {
+            const container = document.getElementById('svgContainer');
+            const svgElement = container.querySelector('svg');
+            if (!svgElement) { alert('请先点击渲染图表！'); return; }
+
+            // 将 SVG 转换为 Canvas 从而下载 PNG
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+            // 确保 SVG 有中文字体定义
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            // 为了高清，放大两倍
+            const scale = 2;
+            const bbox = svgElement.getBoundingClientRect();
+            canvas.width = parseInt(svgElement.getAttribute('width') || bbox.width) * scale;
+            canvas.height = parseInt(svgElement.getAttribute('height') || bbox.height) * scale;
+
+            ctx.scale(scale, scale);
+
+            const img = new Image();
+            img.setAttribute("src", "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData))));
+
+            img.onload = function () {
+                ctx.drawImage(img, 0, 0);
+                const a = document.createElement("a");
+                a.download = "总体E-R图_防乱码版.png";
+                a.href = canvas.toDataURL("image/png");
+                a.click();
+            };
+        }
+    </script>
+</body>
+
+</html>

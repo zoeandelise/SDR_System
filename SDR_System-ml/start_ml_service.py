@@ -28,8 +28,8 @@ logger = logging.getLogger(__name__)
 def check_dependencies():
     """检查依赖包"""
     required_packages = [
-        'fastapi', 'uvicorn', 'pandas', 'numpy', 'scikit-learn',
-        'pymongo', 'pymysql', 'redis', 'surprise', 'torch'
+        'fastapi', 'uvicorn', 'pandas', 'numpy', 'sklearn',
+        'pymysql', 'surprise'
     ]
     
     missing_packages = []
@@ -100,10 +100,10 @@ def main():
         
         # 启动uvicorn服务
         uvicorn.run(
-            "app:app",
+            "main_service:app",
             host="0.0.0.0",
             port=8001,
-            reload=True,
+            reload=False,
             log_level="info",
             access_log=True
         )

@@ -135,40 +135,6 @@ export const dynamicRoutes = [
     ]
   },
   {
-    path: '/diet/admin',
-    component: Layout,
-    hidden: true,
-    roles: ['admin'],
-    children: [
-      {
-        path: 'users',
-        component: () => import('@/views/diet/admin/userList'),
-        name: 'AdminUserList',
-        meta: { title: '用户数据管理', activeMenu: '/diet/dashboard' }
-      },
-      {
-        path: 'stats',
-        component: () => import('@/views/diet/admin/systemStats'),
-        name: 'SystemStats',
-        meta: { title: '系统统计', activeMenu: '/diet/dashboard' }
-      }
-    ]
-  },
-  {
-    path: '/diet/ml',
-    component: Layout,
-    hidden: true,
-    roles: ['admin'],
-    children: [
-      {
-        path: 'management',
-        component: () => import('@/views/diet/ml/management'),
-        name: 'MLManagement',
-        meta: { title: 'ML推荐管理', activeMenu: '/diet/dashboard' }
-      }
-    ]
-  },
-  {
     path: '/monitor/job-log',
     component: Layout,
     hidden: true,

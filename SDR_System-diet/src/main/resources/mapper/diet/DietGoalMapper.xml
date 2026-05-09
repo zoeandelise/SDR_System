@@ -165,4 +165,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{goalId}
         </foreach>
     </delete>
+
+    <!-- 【B端全局大盘】全站当前进行中的目标总数 -->
+    <select id="selectGlobalActiveGoalsCount" resultType="int">
+        select count(1) from diet_goal where status = '0'
+    </select>
 </mapper>

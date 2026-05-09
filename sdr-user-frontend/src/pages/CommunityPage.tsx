@@ -1,505 +1,631 @@
-import React, { useState } from 'react';
-import { Users, MessageCircle, Heart, Share2, Plus, Search, TrendingUp, Award, Camera } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import React, { useState, useEffect } from 'react';
+import { Users, MessageCircle, Heart, Plus, X, ThumbsUp, BookOpen, Clock, Eye, Image as ImageIcon, Loader2, Trash2 } from 'lucide-react';
+import { useAuth } from '../components/AuthGuard';
+import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import api from '../services/api';
+import { useToast } from '../components/ui/Toast';
 
 const CommunityPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('feed');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [posts, setPosts] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'posts'|'articles'>('posts');
+  const [articles, setArticles] = useState<any[]>([]);
+  const [loadingArticles, setLoadingArticles] = useState(false);
 
-  const tabs = [
-    { id: 'feed', name: '动态', icon: '📱' },
-    { id: 'groups', name: '小组', icon: '👥' },
-    { id: 'challenges', name: '挑战', icon: '🏆' },
-    { id: 'experts', name: '专家', icon: '👨‍⚕️' }
-  ];
+  const [articleModalOpen, setArticleModalOpen] = useState(false);
+  const [currentArticle, setCurrentArticle] = useState<any>(null);
+  const [loadingArticleDetail, setLoadingArticleDetail] = useState(false);
 
-  const posts = [
-    {
-      id: 1,
-      user: {
-        name: '健康小达人',
-        avatar: '👩‍🦰',
-        level: 'VIP',
-        followers: 1234
-      },
-      content: '今天成功完成了21天健康饮食挑战！分享一下我的心得：坚持记录每日饮食真的很重要，让我更了解自己的饮食习惯。现在体重减了3.5kg，精神状态也好了很多！',
-      images: ['🥗', '📊', '⚖️'],
-      tags: ['减重成功', '21天挑战', '健康饮食'],
-      likes: 89,
-      comments: 23,
-      shares: 12,
-      time: '2小时前',
-      isLiked: false
-    },
-    {
-      id: 2,
-      user: {
-        name: '营养师小王',
-        avatar: '👨‍⚕️',
-        level: '专家',
-        followers: 5678
-      },
-      content: '很多朋友问我关于蛋白质摄入的问题。这里给大家分享一个简单的计算方法：每公斤体重需要0.8-1.2g蛋白质。对于运动人群，可以适当增加到1.5-2g。记住，优质蛋白质来源包括：鸡蛋、鱼类、瘦肉、豆类等。',
-      images: ['🥚', '🐟', '🥩'],
-      tags: ['营养知识', '蛋白质', '专业建议'],
-      likes: 156,
-      comments: 45,
-      shares: 28,
-      time: '4小时前',
-      isLiked: true
-    },
-    {
-      id: 3,
-      user: {
-        name: '运动爱好者',
-        avatar: '🏃‍♂️',
-        level: '活跃',
-        followers: 892
-      },
-      content: '今天的晨跑配早餐！5公里跑步后来一份营养丰富的早餐，燕麦+酸奶+坚果+水果，满满的能量感。大家也要记得运动后及时补充营养哦～',
-      images: ['🏃‍♂️', '🥣', '🍓'],
-      tags: ['晨跑', '营养早餐', '运动后营养'],
-      likes: 67,
-      comments: 18,
-      shares: 9,
-      time: '6小时前',
-      isLiked: false
+  const [newPostContent, setNewPostContent] = useState('');
+  const [newPostImages, setNewPostImages] = useState<string[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [likedOnly, setLikedOnly] = useState(false);
+
+  const [expandedPostIds, setExpandedPostIds] = useState<Record<number, boolean>>({});
+  const [commentsByPostId, setCommentsByPostId] = useState<Record<number, any[]>>({});
+  const [commentDraftByPostId, setCommentDraftByPostId] = useState<Record<number, string>>({});
+  const [commentLoadingByPostId, setCommentLoadingByPostId] = useState<Record<number, boolean>>({});
+  const [commentSubmittingByPostId, setCommentSubmittingByPostId] = useState<Record<number, boolean>>({});
+
+  const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
+  const { userInfo } = useAuth();
+
+  const getCurrentUserId = () => {
+    if (userInfo?.user?.userId) return userInfo.user.userId;
+    if (userInfo?.userId) return userInfo.userId;
+    const stored = localStorage.getItem('userInfo');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return parsed.user?.userId || parsed.userId || null;
+      } catch { return null; }
     }
-  ];
-
-  const groups = [
-    {
-      id: 1,
-      name: '减脂小分队',
-      description: '一起科学减脂，健康瘦身',
-      members: 2341,
-      posts: 156,
-      image: '🏃‍♀️',
-      isJoined: true
-    },
-    {
-      id: 2,
-      name: '营养师在线',
-      description: '专业营养师答疑解惑',
-      members: 5678,
-      posts: 289,
-      image: '👨‍⚕️',
-      isJoined: false
-    },
-    {
-      id: 3,
-      name: '健身达人',
-      description: '分享健身心得和经验',
-      members: 3456,
-      posts: 234,
-      image: '💪',
-      isJoined: true
-    },
-    {
-      id: 4,
-      name: '素食主义者',
-      description: '素食生活方式交流',
-      members: 1234,
-      posts: 123,
-      image: '🥬',
-      isJoined: false
-    }
-  ];
-
-  const challenges = [
-    {
-      id: 1,
-      title: '30天健康饮食挑战',
-      description: '连续30天记录饮食，养成健康习惯',
-      participants: 1234,
-      daysLeft: 15,
-      reward: '健康达人徽章',
-      progress: 65,
-      image: '🥗',
-      isJoined: true
-    },
-    {
-      id: 2,
-      title: '每日一万步',
-      description: '每天走一万步，提高身体活力',
-      participants: 2345,
-      daysLeft: 8,
-      reward: '运动达人称号',
-      progress: 0,
-      image: '👟',
-      isJoined: false
-    },
-    {
-      id: 3,
-      title: '水分摄入打卡',
-      description: '每天喝足8杯水，保持身体水分',
-      participants: 1567,
-      daysLeft: 22,
-      reward: '水分管理专家',
-      progress: 80,
-      image: '💧',
-      isJoined: true
-    }
-  ];
-
-  const experts = [
-    {
-      id: 1,
-      name: '李营养师',
-      title: '注册营养师',
-      speciality: '减重营养',
-      followers: 12345,
-      posts: 234,
-      avatar: '👩‍⚕️',
-      rating: 4.9,
-      isFollowed: true
-    },
-    {
-      id: 2,
-      name: '王健身教练',
-      title: '高级健身教练',
-      speciality: '力量训练',
-      followers: 8765,
-      posts: 189,
-      avatar: '💪',
-      rating: 4.8,
-      isFollowed: false
-    },
-    {
-      id: 3,
-      name: '张医生',
-      title: '内分泌科医生',
-      speciality: '代谢调理',
-      followers: 15678,
-      posts: 156,
-      avatar: '👨‍⚕️',
-      rating: 4.9,
-      isFollowed: true
-    }
-  ];
-
-  const toggleLike = (postId: number) => {
-    console.log('Toggle like for post:', postId);
+    return null;
   };
 
-  const joinGroup = (groupId: number) => {
-    console.log('Join group:', groupId);
+  const loadPosts = async () => {
+    try {
+      setLoading(true);
+      const res: any = await api.get('/api/user/diet/community/list');
+      if (res && res.code === 200 && res.data) {
+        const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.list || []);
+        const fetchedPosts = list.map((p: any) => ({
+          id: p.postId || p.post_id,
+          userId: p.userId || p.user_id,
+          user: {
+            name: p.nickName || p.nick_name || '匿名用户',
+            avatar: p.avatar,
+          },
+          content: p.content,
+          imageUrl: p.imageUrl || p.image_url || p.imageUrls || p.image_urls || '',
+          likes: p.likeCount || p.like_count || 0,
+          comments: p.commentCount || p.comment_count || 0,
+          time: p.createTime ? new Date(p.createTime).toLocaleString() : (p.create_time ? new Date(p.create_time).toLocaleString() : ''),
+          isLiked: !!(p.isLiked ?? p.is_liked)
+        }));
+        setPosts(fetchedPosts);
+      }
+    } catch (err) {
+      console.error('加载社区动态失败:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const joinChallenge = (challengeId: number) => {
-    console.log('Join challenge:', challengeId);
+  const loadArticles = async () => {
+    try {
+      setLoadingArticles(true);
+      const res: any = await api.get('/api/user/diet/article/list');
+      if (res && res.code === 200) {
+        setArticles(res.data || []);
+      }
+    } catch (err) {
+      console.error('加载科普资讯失败:', err);
+    } finally {
+      setLoadingArticles(false);
+    }
   };
 
-  const followExpert = (expertId: number) => {
-    console.log('Follow expert:', expertId);
+  const viewArticle = async (id: number) => {
+    setArticleModalOpen(true);
+    setLoadingArticleDetail(true);
+    setCurrentArticle(null);
+    try {
+      const res: any = await api.get('/api/user/diet/article/' + id);
+      if (res?.code === 200) setCurrentArticle(res.data);
+    } catch (e) {}
+    finally { setLoadingArticleDetail(false); }
   };
 
-  const renderFeed = () => (
-    <div className="space-y-6">
+  useEffect(() => {
+    loadPosts();
+    loadArticles();
+  }, []);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      setUploadingImage(true);
+      const res: any = await api.post('/common/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res?.code === 200) {
+        setNewPostImages(prev => [...prev, res.url || res.fileName]);
+      } else {
+        showToast('error', res?.msg || '上传失败');
+      }
+    } catch (e) {
+      showToast('error', '上传失败，请重试');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    const content = newPostContent.trim();
+    if (!content && newPostImages.length === 0) return;
+    try {
+      setPublishing(true);
+      // 若后端要求 content 必填，当只有图片时补充默认文案
+      const finalContent = content || '分享图片';
+      const res: any = await api.post('/api/user/diet/community/publish', {
+        content: finalContent,
+        imageUrls: newPostImages.join(',')
+      });
+      if (res?.code !== 200) {
+        showToast('error', res?.msg || '发布失败');
+        return;
+      }
+      setNewPostContent('');
+      setNewPostImages([]);
+      setPublishOpen(false);
+      showToast('success', '发布成功');
+      await loadPosts();
+    } catch (err: any) {
+      const msg = err?.response?.data?.msg || err?.msg || '发布失败，请稍后重试';
+      showToast('error', msg);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const deletePost = async (postId: number) => {
+    if (!window.confirm('确定要删除这条动态吗？')) return;
+    try {
+      const res: any = await api.delete('/api/user/diet/community/' + postId);
+      if (res?.code === 200) {
+        showToast('success', '删除成功');
+        setPosts(prev => prev.filter(p => p.id !== postId));
+      } else {
+        showToast('error', res?.msg || '删除失败');
+      }
+    } catch (e) {
+      showToast('error', '删除失败');
+    }
+  };
+
+  const toggleLike = async (postId: number) => {
+    try {
+      const before = posts.find(p => p.id === postId);
+      const optimisticLiked = !before?.isLiked;
+      setPosts(prev => prev.map(p => p.id === postId ? {
+        ...p,
+        isLiked: optimisticLiked,
+        likes: Math.max((p.likes || 0) + (optimisticLiked ? 1 : -1), 0)
+      } : p));
+
+      const res: any = await api.post('/api/user/diet/community/like/' + postId);
+      if (res?.code === 200 && res.data) {
+        const data = res.data;
+        setPosts(prev => prev.map(p => p.id === postId ? {
+          ...p,
+          isLiked: !!data.isLiked,
+          likes: typeof data.likeCount === 'number' ? data.likeCount : p.likes,
+        } : p));
+      } else {
+        loadPosts();
+      }
+    } catch (err) {
+      console.error('点赞失败:', err);
+      showToast('error', '操作失败，请稍后重试');
+      loadPosts();
+    }
+  };
+
+  const toggleComments = async (postId: number) => {
+    setExpandedPostIds(prev => ({ ...prev, [postId]: !prev[postId] }));
+
+    const willExpand = !expandedPostIds[postId];
+    if (!willExpand) return;
+
+    if (commentsByPostId[postId]) return;
+
+    setCommentLoadingByPostId(prev => ({ ...prev, [postId]: true }));
+    try {
+      const res: any = await api.get('/api/user/diet/community/comments/' + postId);
+      if (res?.code === 200) {
+        setCommentsByPostId(prev => ({ ...prev, [postId]: res.data || [] }));
+      } else {
+        setCommentsByPostId(prev => ({ ...prev, [postId]: [] }));
+      }
+    } catch (e) {
+      console.error('加载评论失败:', e);
+      setCommentsByPostId(prev => ({ ...prev, [postId]: [] }));
+    } finally {
+      setCommentLoadingByPostId(prev => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const submitComment = async (postId: number) => {
+    const content = (commentDraftByPostId[postId] || '').trim();
+    if (!content) return;
+    try {
+      setCommentSubmittingByPostId(prev => ({ ...prev, [postId]: true }));
+      const publishRes: any = await api.post('/api/user/diet/community/comments/' + postId, { content });
+      if (publishRes?.code !== 200) {
+        showToast('error', publishRes?.msg || '评论失败');
+        return;
+      }
+      setCommentDraftByPostId(prev => ({ ...prev, [postId]: '' }));
+
+      // 重新拉取评论列表
+      const res: any = await api.get('/api/user/diet/community/comments/' + postId);
+      if (res?.code === 200) {
+        setCommentsByPostId(prev => ({ ...prev, [postId]: res.data || [] }));
+        setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: (res.data || []).length } : p));
+        showToast('success', '评论已发送');
+      } else {
+        loadPosts();
+      }
+    } catch (e: any) {
+      const msg = e?.response?.data?.msg || e?.msg || '评论失败，请稍后重试';
+      showToast('error', msg);
+    } finally {
+      setCommentSubmittingByPostId(prev => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const toggleCommentLike = async (postId: number, commentId: number) => {
+    try {
+      const res: any = await api.post('/api/user/diet/community/comment-like/' + commentId);
+      if (res?.code === 200) {
+        // 刷新评论列表
+        const commRes: any = await api.get('/api/user/diet/community/comments/' + postId);
+        if (commRes?.code === 200) {
+          setCommentsByPostId(prev => ({ ...prev, [postId]: commRes.data || [] }));
+        }
+      }
+    } catch (e) {
+      console.error('评论点赞失败:', e);
+    }
+  };
+
+  // =================== 渲染帖子列表 ===================
+  const renderPostsTab = () => (
+    <>
       {/* 发布动态 */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white text-lg">
-              👤
+            <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+              我
             </div>
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="分享你的健康心得..."
-                className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
-            <Button>
+            <button
+              onClick={() => setPublishOpen(true)}
+              className="flex-1 text-left p-3 border border-gray-300 rounded-lg bg-white text-gray-500 hover:bg-gray-50 transition-colors"
+            >
+              分享你的健康心得...
+            </button>
+            <Button onClick={() => setPublishOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               发布
             </Button>
           </div>
-          <div className="flex gap-4 mt-3 ml-13">
-            <button className="flex items-center gap-2 text-gray-600 hover:text-primary-600">
-              <Camera className="h-4 w-4" />
-              照片
-            </button>
-            <button className="flex items-center gap-2 text-gray-600 hover:text-primary-600">
-              <Award className="h-4 w-4" />
-              成就
-            </button>
-          </div>
         </CardContent>
       </Card>
 
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-600 font-semibold">{likedOnly ? '我的点赞' : '全部动态'}</div>
+        <button
+          onClick={() => setLikedOnly(v => !v)}
+          className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${likedOnly ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+        >
+          {likedOnly ? '查看全部' : '只看已点赞'}
+        </button>
+      </div>
+
       {/* 动态列表 */}
-      {posts.map((post) => (
-        <Card key={post.id}>
-          <CardContent className="p-6">
-            {/* 用户信息 */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="text-2xl">{post.user.avatar}</div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-medium text-gray-900">{post.user.name}</h4>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    post.user.level === '专家' ? 'bg-blue-100 text-blue-700' :
-                    post.user.level === 'VIP' ? 'bg-purple-100 text-purple-700' :
-                    'bg-gray-100 text-gray-700'
-                  }`}>
-                    {post.user.level}
-                  </span>
-                </div>
-                <div className="text-sm text-gray-600">{post.user.followers} 粉丝 • {post.time}</div>
-              </div>
-            </div>
-
-            {/* 内容 */}
-            <p className="text-gray-800 mb-4">{post.content}</p>
-
-            {/* 图片 */}
-            {post.images.length > 0 && (
-              <div className="flex gap-2 mb-4">
-                {post.images.map((image, index) => (
-                  <div key={index} className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-2xl">
-                    {image}
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-10 h-10 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        </div>
+      ) : (likedOnly ? posts.filter(p => p.isLiked).length > 0 : posts.length > 0) ? (
+        <div className="space-y-4">
+          {(likedOnly ? posts.filter(p => p.isLiked) : posts).map((post) => (
+            <Card key={post.id}>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-gray-200 text-gray-700 text-sm font-bold border border-gray-200 overflow-hidden shadow-sm">
+                    {(post.user.name || '匿').charAt(0).toUpperCase()}
+                    {post.user.avatar && String(post.user.avatar).trim() !== '' && String(post.user.avatar) !== 'null' && (
+                      <img 
+                        src={post.user.avatar} 
+                        alt="avatar" 
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-gray-900">{post.user.name}</h4>
+                      {getCurrentUserId() === post.userId && (
+                        <button onClick={() => deletePost(post.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1" title="删除动态">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600">{post.time}</div>
+                  </div>
+                </div>
 
-            {/* 标签 */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {post.tags.map((tag, index) => (
-                <span key={index} className="px-3 py-1 bg-primary-50 text-primary-700 text-sm rounded-full">
-                  #{tag}
-                </span>
-              ))}
-            </div>
+                <p className="text-gray-800 mb-4 text-base whitespace-pre-wrap">{post.content}</p>
 
-            {/* 互动按钮 */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-              <button
-                onClick={() => toggleLike(post.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  post.isLiked ? 'text-red-600 bg-red-50' : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <Heart className={`h-4 w-4 ${post.isLiked ? 'fill-current' : ''}`} />
-                {post.likes}
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-50">
-                <MessageCircle className="h-4 w-4" />
-                {post.comments}
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-50">
-                <Share2 className="h-4 w-4" />
-                {post.shares}
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+                {post.imageUrl && (
+                  <div className={`mt-3 mb-4 ${post.imageUrl.split(',').filter((u:string)=>u.trim()).length === 1 ? '' : 'grid grid-cols-2 sm:grid-cols-3 gap-2'}`}>
+                    {post.imageUrl.split(',').filter((url:string) => url.trim()).map((url:string, idx:number, arr:string[]) => {
+                      const isSingle = arr.length === 1;
+                      const fullUrl = url.startsWith('http') ? url : (process.env.REACT_APP_BASE_API || '') + url;
+                      return (
+                        <img 
+                          key={idx} 
+                          src={fullUrl} 
+                          alt="post image" 
+                          className={
+                            isSingle 
+                              ? "w-auto max-w-[80%] md:max-w-md max-h-64 object-contain rounded-lg border border-gray-100 cursor-pointer" 
+                              : "w-full aspect-square object-cover rounded-lg border border-gray-100 cursor-pointer"
+                          }
+                          onClick={() => window.open(fullUrl, '_blank')}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => toggleLike(post.id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${post.isLiked ? 'text-red-600 bg-red-50' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    <Heart className={`h-4 w-4 ${post.isLiked ? 'fill-current' : ''}`} />
+                    {post.likes}
+                  </button>
+                  <button
+                    onClick={() => toggleComments(post.id)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-50"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    {post.comments}
+                  </button>
+                </div>
+
+                {expandedPostIds[post.id] && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                    {/* 评论列表 */}
+                    {commentLoadingByPostId[post.id] ? (
+                      <div className="text-sm text-gray-500">加载评论中...</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {(commentsByPostId[post.id] || []).length === 0 ? (
+                          <div className="text-sm text-gray-500">暂无评论</div>
+                        ) : (
+                          (commentsByPostId[post.id] || []).map((c: any) => {
+                            const cId = c.commentId || c.comment_id;
+                            const cLiked = !!(c.isLiked ?? c.is_liked);
+                            const cLikes = c.likeCount ?? c.like_count ?? 0;
+                            return (
+                            <div key={cId} className="flex gap-3">
+                              <div className="relative w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-gray-200 text-gray-700 text-xs font-bold border border-gray-200 overflow-hidden">
+                                {((c.nickName || c.nick_name || '匿') as string).charAt(0).toUpperCase()}
+                                {c.avatar && String(c.avatar).trim() !== '' && String(c.avatar) !== 'null' && (
+                                  <img 
+                                    src={c.avatar} 
+                                    alt="avatar" 
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                  />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-sm font-semibold text-gray-900">{c.nickName || c.nick_name || '匿名用户'}</div>
+                                <div className="text-sm text-gray-700 mt-0.5">{c.content}</div>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <span className="text-xs text-gray-500">
+                                    {c.createTime ? new Date(c.createTime).toLocaleString() : (c.create_time ? new Date(c.create_time).toLocaleString() : '')}
+                                  </span>
+                                  <button
+                                    onClick={() => toggleCommentLike(post.id, cId)}
+                                    className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-colors ${cLiked ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-blue-500 hover:bg-gray-50'}`}
+                                  >
+                                    <ThumbsUp className={`h-3 w-3 ${cLiked ? 'fill-current' : ''}`} />
+                                    {cLikes > 0 && <span>{cLikes}</span>}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+
+                    {/* 评论输入 */}
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="写下你的评论..."
+                        value={commentDraftByPostId[post.id] || ''}
+                        onChange={(e) => setCommentDraftByPostId(prev => ({ ...prev, [post.id]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') submitComment(post.id);
+                        }}
+                        className="flex-1 p-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900 placeholder:text-gray-400"
+                      />
+                      <Button size="sm" onClick={() => submitComment(post.id)} disabled={!!commentSubmittingByPostId[post.id]}>
+                        {commentSubmittingByPostId[post.id] ? '发送中...' : '发送'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <div className="text-4xl mb-4">📝</div>
+          <p className="text-base text-gray-700">{likedOnly ? '暂无点赞内容' : '暂无社区动态'}</p>
+          <p className="text-sm text-gray-500 mt-1">{likedOnly ? '去给喜欢的帖子点个赞吧' : '成为第一个分享健康心得的人吧！'}</p>
+        </div>
+      )}
+    </>
   );
 
-  const renderGroups = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {groups.map((group) => (
-        <Card key={group.id}>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="text-4xl">{group.image}</div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900">{group.name}</h3>
-                <p className="text-sm text-gray-600">{group.description}</p>
-              </div>
-            </div>
-            
-            <div className="flex justify-between text-sm text-gray-600 mb-4">
-              <span>{group.members} 成员</span>
-              <span>{group.posts} 帖子</span>
-            </div>
-
-            <Button
-              variant={group.isJoined ? "outline" : "default"}
-              onClick={() => joinGroup(group.id)}
-              className="w-full"
-            >
-              {group.isJoined ? '已加入' : '加入小组'}
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-
-  const renderChallenges = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {challenges.map((challenge) => (
-        <Card key={challenge.id}>
-          <CardContent className="p-6">
-            <div className="text-center mb-4">
-              <div className="text-4xl mb-2">{challenge.image}</div>
-              <h3 className="font-semibold text-gray-900">{challenge.title}</h3>
-              <p className="text-sm text-gray-600 mt-1">{challenge.description}</p>
-            </div>
-
-            <div className="space-y-3 mb-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">参与人数:</span>
-                <span className="font-medium">{challenge.participants}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">剩余天数:</span>
-                <span className="font-medium">{challenge.daysLeft} 天</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">奖励:</span>
-                <span className="font-medium text-primary-600">{challenge.reward}</span>
-              </div>
-            </div>
-
-            {challenge.isJoined && (
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span>进度</span>
-                  <span>{challenge.progress}%</span>
+  // =================== 渲染科普资讯列表 ===================
+  const renderArticlesTab = () => (
+    <div className="space-y-4">
+      {loadingArticles ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-10 h-10 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        </div>
+      ) : articles.length > 0 ? (
+        articles.map(article => {
+          const articleId = article.article_id || article.articleId;
+          return (
+            <Card key={articleId} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => viewArticle(articleId)}>
+              <CardContent className="p-5">
+                <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{article.title}</h3>
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <span className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" />{article.author || '管理员'}</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{article.create_time ? new Date(article.create_time).toLocaleString() : (article.createTime ? new Date(article.createTime).toLocaleString() : '')}</span>
+                  <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{article.view_count || article.viewCount || 0}</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-primary-500 h-2 rounded-full"
-                    style={{ width: `${challenge.progress}%` }}
-                  ></div>
-                </div>
-              </div>
-            )}
-
-            <Button
-              variant={challenge.isJoined ? "outline" : "default"}
-              onClick={() => joinChallenge(challenge.id)}
-              className="w-full"
-            >
-              {challenge.isJoined ? '继续挑战' : '参加挑战'}
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-
-  const renderExperts = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {experts.map((expert) => (
-        <Card key={expert.id}>
-          <CardContent className="p-6 text-center">
-            <div className="text-4xl mb-3">{expert.avatar}</div>
-            <h3 className="font-semibold text-gray-900">{expert.name}</h3>
-            <p className="text-sm text-gray-600">{expert.title}</p>
-            <p className="text-sm text-primary-600 mb-3">{expert.speciality}</p>
-
-            <div className="flex justify-center items-center gap-1 mb-3">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className={`w-3 h-3 ${i < Math.floor(expert.rating) ? 'text-yellow-500' : 'text-gray-300'}`}>
-                  ⭐
-                </div>
-              ))}
-              <span className="text-sm text-gray-600 ml-1">{expert.rating}</span>
-            </div>
-
-            <div className="flex justify-between text-sm text-gray-600 mb-4">
-              <span>{expert.followers} 粉丝</span>
-              <span>{expert.posts} 帖子</span>
-            </div>
-
-            <Button
-              variant={expert.isFollowed ? "outline" : "default"}
-              onClick={() => followExpert(expert.id)}
-              className="w-full"
-            >
-              {expert.isFollowed ? '已关注' : '关注'}
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
+              </CardContent>
+            </Card>
+          );
+        })
+      ) : (
+        <div className="text-center py-12">
+          <div className="text-4xl mb-4">📚</div>
+          <p className="text-base text-gray-700">暂无科普资讯</p>
+          <p className="text-sm text-gray-500 mt-1">管理员可在后台发布科普文章</p>
+        </div>
+      )}
     </div>
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <>
+      <div className="space-y-6 animate-fadeIn">
+        {/* Header & Tabs */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary-600" />
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2 mb-4">
+            <Users className="h-6 w-6 text-emerald-600" />
             健康社区
           </h1>
-          <p className="text-gray-600 mt-1">与健康达人一起分享经验，互相鼓励</p>
+          <div className="flex border-b border-gray-200">
+            <button
+              className={`py-3 px-6 font-semibold text-sm border-b-2 transition-colors ${activeTab === 'posts' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('posts')}
+            >
+              互动动态
+            </button>
+            <button
+              className={`py-3 px-6 font-semibold text-sm border-b-2 transition-colors ${activeTab === 'articles' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('articles')}
+            >
+              科普资讯
+            </button>
+          </div>
         </div>
-        
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="搜索用户、话题..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
+
+        {/* Tab内容 */}
+        {activeTab === 'posts' ? renderPostsTab() : renderArticlesTab()}
+      </div>
+
+      {/* 资讯详情弹窗 */}
+      {articleModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4" onClick={() => setArticleModalOpen(false)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <div className="text-lg font-bold text-gray-900">资讯详情</div>
+              <button
+                onClick={() => setArticleModalOpen(false)}
+                className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              {loadingArticleDetail ? (
+                <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"/></div>
+              ) : currentArticle ? (
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900 mb-4">{currentArticle.title}</h1>
+                  <div className="flex items-center gap-4 text-sm text-gray-500 mb-6 pb-6 border-b border-gray-100">
+                    <span>{currentArticle.author || '管理员'}</span>
+                    <span>{currentArticle.create_time ? new Date(currentArticle.create_time).toLocaleString() : (currentArticle.createTime ? new Date(currentArticle.createTime).toLocaleString() : '')}</span>
+                    <span>阅读 {currentArticle.view_count || currentArticle.viewCount || 0}</span>
+                  </div>
+                  {(currentArticle.cover_image || currentArticle.coverImage) && (
+                    <img src={currentArticle.cover_image || currentArticle.coverImage} alt="cover" className="w-full h-auto max-h-64 object-cover rounded-xl mb-6" />
+                  )}
+                  <div className="prose prose-emerald max-w-none text-gray-800 leading-relaxed whitespace-pre-wrap">
+                    {currentArticle.content}
+                  </div>
+                </div>
+              ) : (
+                <div className="py-20 text-center text-gray-500">无法加载文章详情</div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 统计信息 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-primary-600">12,345</div>
-            <div className="text-sm text-gray-600">活跃用户</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">2,567</div>
-            <div className="text-sm text-gray-600">今日动态</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">156</div>
-            <div className="text-sm text-gray-600">活跃小组</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-orange-600">89</div>
-            <div className="text-sm text-gray-600">进行中挑战</div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* 发布动态弹窗 */}
+      {publishOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4" onClick={() => !publishing && setPublishOpen(false)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="text-base font-bold text-gray-900">发布动态</div>
+              <button
+                onClick={() => setPublishOpen(false)}
+                disabled={publishing}
+                className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-60"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <textarea
+                rows={5}
+                placeholder="分享你的健康心得..."
+                value={newPostContent}
+                onChange={e => setNewPostContent(e.target.value)}
+                className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 placeholder:text-gray-400 resize-none"
+              />
+              
+              {/* 图片预览区 */}
+              {(newPostImages.length > 0 || uploadingImage) && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {newPostImages.map((url, idx) => (
+                    <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200">
+                      <img src={url.startsWith('http') ? url : (process.env.REACT_APP_BASE_API || '') + url} alt="upload" className="w-full h-full object-cover" />
+                      <button 
+                        onClick={() => setNewPostImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {uploadingImage && (
+                    <div className="w-20 h-20 rounded-lg border border-gray-200 flex items-center justify-center bg-gray-50">
+                      <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+                    </div>
+                  )}
+                </div>
+              )}
 
-      {/* 标签页 */}
-      <div className="flex gap-2 border-b border-gray-200">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <span>{tab.icon}</span>
-            {tab.name}
-          </button>
-        ))}
-      </div>
-
-      {/* 内容区域 */}
-      <div>
-        {activeTab === 'feed' && renderFeed()}
-        {activeTab === 'groups' && renderGroups()}
-        {activeTab === 'challenges' && renderChallenges()}
-        {activeTab === 'experts' && renderExperts()}
-      </div>
-    </div>
+              <div className="flex justify-between items-center mt-2">
+                <div>
+                  <input type="file" id="imageUpload" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage || newPostImages.length >= 9} />
+                  <label htmlFor="imageUpload" className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md transition-colors ${newPostImages.length >= 9 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-500 hover:text-emerald-600 cursor-pointer hover:bg-emerald-50'}`}>
+                    <ImageIcon className="w-4 h-4" />
+                    {newPostImages.length >= 9 ? '最多9张' : '添加图片'}
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setPublishOpen(false)} disabled={publishing}>取消</Button>
+                  <Button onClick={handlePublish} disabled={publishing || (!newPostContent.trim() && newPostImages.length === 0)}>
+                    {publishing ? '发布中...' : '发布'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

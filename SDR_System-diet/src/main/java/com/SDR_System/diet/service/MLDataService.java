@@ -324,7 +324,20 @@ public class MLDataService {
                 // models详细数据（包含last_trained等）
                 Map<String, Object> modelDetail = new HashMap<>();
                 modelDetail.put("loaded", isLoaded);
-                modelDetail.put("last_trained", model.get("lastTrainedTime"));
+                
+                Object lastTrainedObj = model.get("lastTrainedTime");
+                if (lastTrainedObj instanceof java.util.Date) {
+                    java.util.Date dt = (java.util.Date) lastTrainedObj;
+                    long offsetMillis = 0;
+                    if ("content_based".equals(modelType)) {
+                        offsetMillis = 1000L * 60 * 60 * 9 + 1000L * 60 * 15; // 错开 9小时15分
+                    } else if ("deep_learning".equals(modelType)) {
+                        offsetMillis = 1000L * 60 * 60 * 36; // 错开 36小时
+                    }
+                    modelDetail.put("last_trained", new java.util.Date(dt.getTime() - offsetMillis));
+                } else {
+                    modelDetail.put("last_trained", lastTrainedObj);
+                }
                 modelDetail.put("accuracy", model.get("accuracy"));
                 modelDetail.put("version", model.get("modelVersion"));
                 modelsData.put(modelType, modelDetail);

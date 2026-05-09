@@ -112,13 +112,14 @@
         </template>
       </el-table-column>
       
-      <el-table-column label="方案类型" width="110" align="center">
+      <el-table-column label="策略溯源" width="220" align="center">
         <template slot-scope="scope">
-          <el-tag v-if="scope.row.mealType === '9'" type="warning">
-            <i class="el-icon-food"></i> 全天方案
-          </el-tag>
-          <el-tag v-else type="info">
-            {{ getMealTypeName(scope.row.mealType) }}
+          <el-tag 
+            :type="scope.row.algorithmType && scope.row.algorithmType.includes('冷启动') ? 'warning' : 'success'" 
+            size="small"
+            effect="dark">
+            <i :class="scope.row.algorithmType && scope.row.algorithmType.includes('冷启动') ? 'el-icon-magic-stick' : 'el-icon-cpu'"></i>
+            {{ scope.row.algorithmType || '未知策略' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -178,12 +179,11 @@
           <el-descriptions-item label="生成日期">
             {{ currentPlan.recommendationDate }}
           </el-descriptions-item>
-          <el-descriptions-item label="方案类型">
-            <el-tag v-if="currentPlan.mealType === '9'" type="warning">全天方案</el-tag>
-            <el-tag v-else>{{ getMealTypeName(currentPlan.mealType) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="算法类型">
-            <el-tag type="success">{{ currentPlan.algorithmType }}</el-tag>
+          <el-descriptions-item label="策略溯源">
+            <el-tag :type="currentPlan.algorithmType && currentPlan.algorithmType.includes('冷启动') ? 'warning' : 'success'" effect="dark">
+              <i :class="currentPlan.algorithmType && currentPlan.algorithmType.includes('冷启动') ? 'el-icon-magic-stick' : 'el-icon-cpu'"></i>
+              {{ currentPlan.algorithmType || '未知策略' }}
+            </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="执行状态" :span="2">
             <el-tag v-if="currentPlan.isAccepted === '1'" type="success">
@@ -209,7 +209,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { listRecommendation, delRecommendation } from "@/api/diet/recommendation";
 import { parseTime } from "@/utils/ruoyi";
 
 export default {
@@ -243,43 +243,22 @@ export default {
     parseTime,
     
     /** 查询列表 */
-    async getList() {
+    getList() {
       this.loading = true;
-      try {
-        const params = {
-          pageNum: this.queryParams.pageNum,
-          pageSize: this.queryParams.pageSize
-        };
-        
-        if (this.queryParams.userName) {
-          params.userName = this.queryParams.userName;
-        }
-        if (this.queryParams.isAccepted) {
-          params.isAccepted = this.queryParams.isAccepted;
-        }
-        if (this.dateRange && this.dateRange.length === 2) {
-          params.startDate = this.dateRange[0];
-          params.endDate = this.dateRange[1];
-        }
-        
-        // 直接调用后端API（不通过request封装）
-        const token = this.$store.getters.token;
-        const response = await axios.get('http://localhost:8080/diet/recommendation/list', { 
-          params,
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        
-        if (response.data.code === 200) {
-          this.planList = response.data.rows || [];
-          this.total = response.data.total || 0;
-          this.calculateStatistics(response.data.rows || []);
-        }
-      } catch (error) {
-        console.error('加载推荐方案失败:', error);
-        this.$message.error('加载失败');
-      } finally {
-        this.loading = false;
+      const params = { ...this.queryParams };
+      if (this.dateRange && this.dateRange.length === 2) {
+        params.startDate = this.dateRange[0];
+        params.endDate = this.dateRange[1];
       }
+      listRecommendation(params).then(response => {
+        this.planList = response.rows || [];
+        this.total = response.total || 0;
+        this.calculateStatistics(this.planList);
+      }).catch(() => {
+        this.$message.error('加载失败');
+      }).finally(() => {
+        this.loading = false;
+      });
     },
     
     /** 计算统计 */
@@ -320,30 +299,14 @@ export default {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
-      }).then(async () => {
-        try {
-          const token = this.$store.getters.token;
-          await axios.delete(`http://localhost:8080/diet/recommendation/${row.recommendationId}`, {
-            headers: { 'Authorization': 'Bearer ' + token }
-          });
+      }).then(() => {
+        delRecommendation(row.recommendationId).then(() => {
           this.$message.success('删除成功');
           this.getList();
-        } catch (error) {
+        }).catch(() => {
           this.$message.error('删除失败');
-        }
+        });
       });
-    },
-    
-    /** 获取餐次名称 */
-    getMealTypeName(mealType) {
-      const names = {
-        '0': '早餐',
-        '1': '午餐',
-        '2': '晚餐',
-        '3': '加餐',
-        '9': '全天方案'
-      };
-      return names[mealType] || '未知';
     }
   }
 };

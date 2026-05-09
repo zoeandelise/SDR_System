@@ -449,10 +449,14 @@ async def get_training_progress():
     overall_progress = sum(t['progress'] for t in active_tasks) // len(active_tasks) if active_tasks else 0
     
     return {
-        "isTraining": is_training,
-        "models": active_tasks,
-        "overallProgress": overall_progress,
-        "totalModels": len(active_tasks)
+        "code": 200,
+        "msg": "success",
+        "data": {
+            "isTraining": is_training,
+            "models": active_tasks,
+            "overallProgress": overall_progress,
+            "totalModels": len(active_tasks)
+        }
     }
 
 

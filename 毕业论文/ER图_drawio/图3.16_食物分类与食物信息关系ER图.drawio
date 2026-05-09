@@ -1,0 +1,35 @@
+<mxfile>
+  <diagram name="Page-1">
+    <mxGraphModel dx="900" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="500" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="2" value="食物分类" style="shape=rectangle;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#FEFECE;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="80" y="210" width="100" height="40" as="geometry"/></mxCell>
+        <mxCell id="3" value="食物信息" style="shape=rectangle;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#FEFECE;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="580" y="210" width="100" height="40" as="geometry"/></mxCell>
+        <mxCell id="4" value="包含" style="shape=rhombus;whiteSpace=wrap;html=1;fontSize=12;fillColor=#FFFFFF;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="330" y="205" width="90" height="50" as="geometry"/></mxCell>
+        <mxCell id="5" value="1" style="endArrow=none;html=1;strokeColor=#000000;fontSize=12;fontStyle=1;" edge="1" source="2" target="4" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="6" value="n" style="endArrow=none;html=1;strokeColor=#000000;fontSize=12;fontStyle=1;" edge="1" source="4" target="3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="7" value="分类ID" style="shape=ellipse;whiteSpace=wrap;html=1;fontSize=11;fillColor=#FFFFFF;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="1" y="117" width="80" height="30" as="geometry"/></mxCell>
+        <mxCell id="8" value="" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" source="2" target="7" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="9" value="分类名称" style="shape=ellipse;whiteSpace=wrap;html=1;fontSize=11;fillColor=#FFFFFF;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="201" y="134" width="80" height="30" as="geometry"/></mxCell>
+        <mxCell id="10" value="" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" source="2" target="9" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="11" value="排序号" style="shape=ellipse;whiteSpace=wrap;html=1;fontSize=11;fillColor=#FFFFFF;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="201" y="295" width="80" height="30" as="geometry"/></mxCell>
+        <mxCell id="12" value="" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" source="2" target="11" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="13" value="状态" style="shape=ellipse;whiteSpace=wrap;html=1;fontSize=11;fillColor=#FFFFFF;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="1" y="312" width="80" height="30" as="geometry"/></mxCell>
+        <mxCell id="14" value="" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" source="2" target="13" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="15" value="食物ID" style="shape=ellipse;whiteSpace=wrap;html=1;fontSize=11;fillColor=#FFFFFF;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="636" y="329" width="80" height="30" as="geometry"/></mxCell>
+        <mxCell id="16" value="" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" source="3" target="15" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="17" value="食物名称" style="shape=ellipse;whiteSpace=wrap;html=1;fontSize=11;fillColor=#FFFFFF;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="729" y="259" width="80" height="30" as="geometry"/></mxCell>
+        <mxCell id="18" value="" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" source="3" target="17" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="19" value="分类ID" style="shape=ellipse;whiteSpace=wrap;html=1;fontSize=11;fillColor=#FFFFFF;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="721" y="157" width="80" height="30" as="geometry"/></mxCell>
+        <mxCell id="20" value="" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" source="3" target="19" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="21" value="食物编码" style="shape=ellipse;whiteSpace=wrap;html=1;fontSize=11;fillColor=#FFFFFF;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="618" y="97" width="80" height="30" as="geometry"/></mxCell>
+        <mxCell id="22" value="" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" source="3" target="21" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="23" value="计量单位" style="shape=ellipse;whiteSpace=wrap;html=1;fontSize=11;fillColor=#FFFFFF;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="494" y="122" width="80" height="30" as="geometry"/></mxCell>
+        <mxCell id="24" value="" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" source="3" target="23" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="25" value="标准重量" style="shape=ellipse;whiteSpace=wrap;html=1;fontSize=11;fillColor=#FFFFFF;strokeColor=#000000;" vertex="1" parent="1"><mxGeometry x="440" y="214" width="80" height="30" as="geometry"/></mxCell>
+        <mxCell id="26" value="" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" source="3" target="25" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

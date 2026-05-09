@@ -1,0 +1,1 @@
+SELECT menu_id, menu_name, parent_id, path, component, visible, perms FROM sys_menu WHERE menu_name LIKE '%ML%' OR menu_name LIKE '%推荐%' OR menu_name LIKE '%目标%' OR menu_name LIKE '%图谱%' OR path LIKE '%recognition%';

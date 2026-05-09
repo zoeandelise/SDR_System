@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Flame, 
-  Droplets, 
-  Activity, 
+import {
+  Flame,
+  Droplets,
+  Activity,
   TrendingUp,
   Calendar,
   Clock,
@@ -29,11 +29,11 @@ const DashboardCards: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // 尝试从后端获取数据
         const response = await dashboardApi.getDashboardData();
         console.log('Dashboard API Response:', response);
-        
+
         if (response && response.data) {
           setDashboardData(response.data);
         } else {
@@ -78,7 +78,7 @@ const DashboardCards: React.FC = () => {
   // 动态生成营养卡片数据
   const getNutritionCards = () => {
     const nutrition = dashboardData?.todayNutrition;
-    
+
     if (!nutrition || nutrition.totalCalories === null) {
       // 使用默认数据
       return [
@@ -139,15 +139,15 @@ const DashboardCards: React.FC = () => {
         icon: <Flame className="h-6 w-6" />,
         color: 'text-red-500',
         bgColor: 'bg-red-50',
-        description: caloriesPercentage >= 100 
-          ? '今日目标已达成！' 
+        description: caloriesPercentage >= 100
+          ? '今日目标已达成！'
           : `距离目标还差 ${caloriesTarget - calories} 卡路里`
       },
       {
         title: '蛋白质',
         value: `${nutrition.totalProtein?.toFixed ? nutrition.totalProtein.toFixed(1) : nutrition.totalProtein || '67'}g`,
-        target: '80g',
-        percentage: Math.round(((nutrition.totalProtein?.toFixed ? parseFloat(nutrition.totalProtein.toFixed(1)) : parseFloat(nutrition.totalProtein || '67')) / 80) * 100),
+        target: '100g',
+        percentage: Math.round(((nutrition.totalProtein?.toFixed ? parseFloat(nutrition.totalProtein.toFixed(1)) : parseFloat(nutrition.totalProtein || '67')) / 100) * 100),
         icon: <Target className="h-6 w-6" />,
         color: 'text-orange-500',
         bgColor: 'bg-orange-50',
@@ -196,10 +196,10 @@ const DashboardCards: React.FC = () => {
     },
     {
       title: '智能推荐',
-      description: '基于您的偏好推荐健康食谱',
+      description: '基于您的偏好推荐今日饮食方案',
       icon: <Brain className="h-8 w-8" />,
       color: 'from-orange-500 to-orange-600',
-      action: () => navigate('/recipes')
+      action: () => navigate('/smart-recommendation')
     }
   ];
 
@@ -214,7 +214,7 @@ const DashboardCards: React.FC = () => {
         image: ['🥣', '🥗', '🍎', '🍽️'][index] || '🍽️'
       }));
     }
-    
+
     // 默认数据
     return [
       {
@@ -255,7 +255,7 @@ const DashboardCards: React.FC = () => {
           <div className="flex items-center">
             <Target className="h-5 w-5 text-yellow-500 mr-2" />
             <span className="text-yellow-800">{error}</span>
-            <button 
+            <button
               onClick={() => setError(null)}
               className="ml-auto text-yellow-500 hover:text-yellow-700"
             >
@@ -290,7 +290,7 @@ const DashboardCards: React.FC = () => {
               </div>
               <div className="mt-2">
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-500"
                     style={{ width: `${card.percentage}%` }}
                   ></div>
@@ -340,8 +340,8 @@ const DashboardCards: React.FC = () => {
               <CardTitle>今日饮食记录</CardTitle>
             </CardHeader>
             <CardContent>
-          <div className="space-y-4">
-            {getRecentMeals().map((meal: any, index: number) => (
+              <div className="space-y-4">
+                {getRecentMeals().map((meal: any, index: number) => (
                   <div key={index} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-xl">
                     <div className="text-3xl">{meal.image}</div>
                     <div className="flex-1">
@@ -358,8 +358,8 @@ const DashboardCards: React.FC = () => {
                   </div>
                 ))}
               </div>
-              <Button 
-                className="w-full mt-4" 
+              <Button
+                className="w-full mt-4"
                 variant="outline"
                 onClick={() => navigate('/diet-log')}
               >
@@ -384,7 +384,7 @@ const DashboardCards: React.FC = () => {
                     <span className="text-sm text-green-600">比上周减少 0.3kg</span>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">平均卡路里</span>
@@ -400,8 +400,8 @@ const DashboardCards: React.FC = () => {
                   </div>
                 </div>
 
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
                   size="sm"
                   onClick={() => navigate('/health-report')}
                 >

@@ -5,32 +5,38 @@
 @layer base {
     :root {
         --background: 240 20% 98%;
-        /* Soft cool grey */
         --foreground: 222 47% 11%;
-        /* Dark slate */
         --card: 0 0% 100%;
         --card-foreground: 222 47% 11%;
         --primary: 142 71% 45%;
-        /* Green */
         --primary-foreground: 355.7 100% 97.3%;
         --radius: 0.75rem;
     }
 
-    body {
-        @apply bg-gray-50 text-gray-900 font-sans antialiased;
-        background-image: radial-gradient(at 0% 0%, rgba(236, 253, 245, 0.5) 0px, transparent 50%),
-            radial-gradient(at 100% 0%, rgba(255, 247, 237, 0.5) 0px, transparent 50%);
-        background-attachment: fixed;
+    * {
+        -webkit-tap-highlight-color: transparent;
     }
 
-    /* 使得 headings 更突出 */
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
+    html {
+        scroll-behavior: smooth;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+        @apply bg-gray-50 text-gray-900 antialiased;
+        font-family: 'Inter', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background-attachment: fixed;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overscroll-behavior-y: contain;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
         @apply tracking-tight font-bold text-slate-800;
+    }
+
+    input, textarea, select {
+        @apply outline-none;
     }
 }
 
@@ -46,25 +52,28 @@
     .text-gradient {
         @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-secondary-500;
     }
+
+    .safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .safe-area-top {
+        padding-top: env(safe-area-inset-top, 0px);
+    }
 }
 
-/* 隐藏滚动条但保留功能 */
 .hide-scrollbar {
     -ms-overflow-style: none;
-    /* IE/Edge */
     scrollbar-width: none;
-    /* Firefox */
 }
 
 .hide-scrollbar::-webkit-scrollbar {
     display: none;
-    /* Chrome/Safari */
 }
 
-/* 自定义滚动条样式 */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -72,5 +81,41 @@
 }
 
 ::-webkit-scrollbar-thumb {
-    @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+    @apply bg-gray-200 rounded-full hover:bg-gray-300 transition-colors;
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.animate-slideInRight {
+    animation: slideInRight 0.3s ease-out forwards;
+}
+
+.animate-fadeIn {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slideUp {
+    animation: slideUp 0.3s ease-out forwards;
+}
+
+.animate-scaleIn {
+    animation: scaleIn 0.2s ease-out forwards;
 }

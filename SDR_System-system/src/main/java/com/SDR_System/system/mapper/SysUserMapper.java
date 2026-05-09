@@ -124,4 +124,10 @@ public interface SysUserMapper
      * @return 结果
      */
     public SysUser checkEmailUnique(String email);
+
+    /**
+     * 【大盘专供】获取全站总计注册户籍数量
+     * @return 数量
+     */
+    public int selectGlobalTotalUsersCount();
 }
