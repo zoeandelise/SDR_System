@@ -1,12 +1,9 @@
-// 饮食历史记录页面 - 查看所有历史记录和推荐方案
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api, { dietRecordApi } from '../services/api';
 import FoodDetailModal from '../components/FoodDetailModal';
 import { useToast } from '../components/ui/Toast';
 
 const DietHistoryPage: React.FC = () => {
-  const navigate = useNavigate();
   const { showToast, showConfirm } = useToast();
   const [records, setRecords] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<any[]>([]);
@@ -133,20 +130,9 @@ const DietHistoryPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <button onClick={() => navigate('/')} className="flex items-center space-x-2 text-gray-700">
-              <span>←</span><span>返回首页</span>
-            </button>
-            <h1 className="text-xl font-bold text-gray-900">📚 饮食历史</h1>
-            <div className="w-20"></div>
-          </div>
-        </div>
-      </nav>
+    <div className="animate-fadeIn">
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">📚 饮食历史</h1>
 
-      <div className="max-w-4xl mx-auto px-4 py-8 pb-24">
         {/* Tab切换 */}
         <div className="mb-6 flex space-x-3">
           <button
@@ -390,7 +376,6 @@ const DietHistoryPage: React.FC = () => {
             onClose={() => setSelectedFood(null)}
           />
         )}
-      </div>
     </div>
   );
 };

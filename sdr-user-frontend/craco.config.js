@@ -11,7 +11,16 @@ module.exports = {
     historyApiFallback: true, // 支持前端路由
     proxy: [
       {
-        context: ['/api', '/diet', '/login', '/logout', '/getInfo', '/register', '/captchaImage', '/common', '/actuator'],
+        context: function(pathname, req) {
+          const apiPaths = ['/api', '/diet', '/getInfo', '/captchaImage', '/common', '/actuator', '/profile'];
+          if (apiPaths.some(p => pathname.startsWith(p))) return true;
+          
+          // Only proxy POST requests for auth endpoints to avoid conflict with React Router
+          if (['/login', '/logout', '/register'].includes(pathname) && req.method === 'POST') {
+            return true;
+          }
+          return false;
+        },
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,

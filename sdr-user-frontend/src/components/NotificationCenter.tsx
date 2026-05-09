@@ -17,40 +17,7 @@ interface Notification {
 
 const NotificationCenter: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'info',
-      title: '用餐提醒',
-      message: '该吃午餐了！记得记录您的饮食',
-      timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30分钟前
-      read: false
-    },
-    {
-      id: '2',
-      type: 'success',
-      title: '目标达成',
-      message: '恭喜！您已连续打卡7天',
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2小时前
-      read: false
-    },
-    {
-      id: '3',
-      type: 'warning',
-      title: '营养提醒',
-      message: '今日蛋白质摄入偏低，建议增加优质蛋白',
-      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4小时前
-      read: true
-    },
-    {
-      id: '4',
-      type: 'info',
-      title: '新功能上线',
-      message: 'AI食物识别功能已优化，识别准确率提升至95%',
-      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1天前
-      read: true
-    }
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -68,16 +35,15 @@ const NotificationCenter: React.FC = () => {
   };
 
   const getNotificationBgColor = (type: Notification['type'], read: boolean) => {
-    const opacity = read ? '50' : '100';
     switch (type) {
       case 'success':
-        return `bg-green-${opacity} border-green-200`;
+        return read ? 'bg-green-50 border-green-200' : 'bg-green-100 border-green-200';
       case 'warning':
-        return `bg-yellow-${opacity} border-yellow-200`;
+        return read ? 'bg-yellow-50 border-yellow-200' : 'bg-yellow-100 border-yellow-200';
       case 'error':
-        return `bg-red-${opacity} border-red-200`;
+        return read ? 'bg-red-50 border-red-200' : 'bg-red-100 border-red-200';
       default:
-        return `bg-blue-${opacity} border-blue-200`;
+        return read ? 'bg-blue-50 border-blue-200' : 'bg-blue-100 border-blue-200';
     }
   };
 
@@ -120,25 +86,6 @@ const NotificationCenter: React.FC = () => {
     setNotifications([]);
   };
 
-  // 模拟新通知
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // 随机生成新通知 (概率较低)
-      if (Math.random() < 0.1) { // 10% 概率
-        const newNotification: Notification = {
-          id: Date.now().toString(),
-          type: ['info', 'success', 'warning'][Math.floor(Math.random() * 3)] as any,
-          title: '系统提醒',
-          message: '这是一条模拟通知消息',
-          timestamp: new Date(),
-          read: false
-        };
-        setNotifications(prev => [newNotification, ...prev]);
-      }
-    }, 30000); // 每30秒检查一次
-
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <div className="relative">
@@ -147,7 +94,7 @@ const NotificationCenter: React.FC = () => {
         variant="ghost"
         size="icon"
         onClick={() => setIsOpen(!isOpen)}
-        className="relative"
+        className="relative text-gray-700 hover:text-gray-900"
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (

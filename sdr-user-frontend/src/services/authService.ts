@@ -38,7 +38,7 @@ authApi.interceptors.response.use(
     } else if (res.code === 401) {
       // 未授权，清除token
       removeToken();
-      window.location.href = '/auth/login';
+      window.location.href = '/login';
       return Promise.reject(new Error(res.msg || '认证失败'));
     } else {
       return Promise.reject(new Error(res.msg || '请求失败'));
@@ -49,7 +49,7 @@ authApi.interceptors.response.use(
 
     if (error.response?.status === 401) {
       removeToken();
-      window.location.href = '/auth/login';
+      window.location.href = '/login';
     }
 
     return Promise.reject(error);
@@ -119,7 +119,7 @@ export const logout = async (): Promise<void> => {
   } finally {
     removeToken();
     localStorage.removeItem('userInfo');
-    window.location.href = '/auth/login';
+    window.location.href = '/login';
   }
 };
 
@@ -154,6 +154,31 @@ export const checkAuth = async (): Promise<boolean> => {
   } catch (error) {
     console.error('认证检查失败:', error);
     removeToken();
+    return false;
+  }
+};
+
+// 检查用户是否需要初始化健康信息（即首次登录，或者从未保存过个人的身高体重等数据）
+export const checkUserNeedsInit = async (): Promise<boolean> => {
+  try {
+    // 调用 healthAPI 获取信息
+    // 注意：我们通过 authApi 实例去发这个带 Token 的请求，以避免循环依赖 api.ts
+    const response: any = await authApi.get('/diet/health/my').catch(() => null);
+
+    if (response && response.data) {
+      const h = response.data;
+      // 判定逻辑：如果 height / weight 都为 null / 0，或者某些关键指标为 0，基本判定为没使用过
+      if (!h.weight || h.weight <= 0) {
+        return true;
+      }
+      return false; // 已有有效数据
+    }
+
+    // 接口没数据返回，肯定是没初始化
+    return true;
+  } catch (error) {
+    console.error('检查用户初始化状态失败', error);
+    // 发生异常保守默认放行
     return false;
   }
 };

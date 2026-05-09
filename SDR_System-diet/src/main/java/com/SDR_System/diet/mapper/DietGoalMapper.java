@@ -99,4 +99,10 @@ public interface DietGoalMapper
      * @return 目标列表
      */
     public List<DietGoal> selectSoonExpireGoals(@Param("userId") Long userId, @Param("days") Integer days);
+
+    /**
+     * 【大盘专供】获取全站当前正在“执行中(status=0)”的总活跃打卡目标数
+     * @return 数量
+     */
+    public int selectGlobalActiveGoalsCount();
 }

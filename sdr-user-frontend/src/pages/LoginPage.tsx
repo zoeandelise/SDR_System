@@ -1,7 +1,7 @@
 // 登录页面 - 基于若依登录逻辑
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { login, register, getCaptcha, type LoginParams, type RegisterParams } from '../services/authService';
+import { login, register, getCaptcha, checkUserNeedsInit, type LoginParams, type RegisterParams } from '../services/authService';
 import { isAuthenticated } from '../utils/auth';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -69,8 +69,22 @@ const LoginPage: React.FC = () => {
         code: loginForm.code,
         uuid: loginForm.uuid
       });
-      const from = (location.state as any)?.from || '/';
-      navigate(from, { replace: true });
+
+      // 登录成功后，立即检查是否为未填基础信息的新人
+      const needsInit = await checkUserNeedsInit();
+
+      if (needsInit) {
+        // 新人强制路由到健康目标并提示
+        navigate('/health-goal', {
+          replace: true,
+          state: { showNewUserWelcome: true }
+        });
+      } else {
+        // 老用户正常跳回之前被拦截的地方或首页
+        const from = (location.state as any)?.from || '/';
+        navigate(from, { replace: true });
+      }
+
     } catch (error: any) {
       console.error('登录失败:', error);
       setMessage(error.message || '登录失败，请检查用户名、密码或验证码');

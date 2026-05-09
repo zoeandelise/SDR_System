@@ -15,7 +15,6 @@
             <span class="tag tag-primary">智能推荐</span>
             <span class="tag tag-success">营养分析</span>
             <span class="tag tag-warning">健康管理</span>
-            <span class="tag tag-info">机器学习</span>
           </div>
         </div>
         <div class="banner-version">
@@ -138,26 +137,26 @@ export default {
       ],
       features: [
         {
-          title: "智能推荐算法",
-          desc: "基于BMR/BMI的精准营养匹配，营养达标优先（70%权重），历史反馈学习优化",
+          title: "健康饮食推荐引擎",
+          desc: "系统基于体征指标（BMR/BMI）静态档案为您精准分配推荐的每日摄入额度热量",
           icon: "el-icon-magic-stick",
           gradient: "linear-gradient(135deg, #6366f1, #818cf8)"
         },
         {
-          title: "健康规则过滤",
-          desc: "糖尿病（GI<55）、高血压（钠<300mg）、痛风（嘌呤<50mg）、高血脂（胆固醇<100mg）",
+          title: "三餐结构打卡追踪",
+          desc: "内置精细化到早、中、晚餐的独立打卡面板，直观通过热力色阶折射当月记录活跃度",
           icon: "el-icon-document-checked",
           gradient: "linear-gradient(135deg, #10b981, #34d399)"
         },
         {
-          title: "营养数据完整",
-          desc: "55种食物100%营养数据，参考《中国食物成分表2024》权威标准",
+          title: "高覆盖率热量名录",
+          desc: "库内扩容了近百种常见中式与快餐硬核食材，涵盖基本的热量与三大宏量营养素计算",
           icon: "el-icon-pie-chart",
           gradient: "linear-gradient(135deg, #f59e0b, #fbbf24)"
         },
         {
-          title: "多样性优化",
-          desc: "近期推荐惩罚机制，确保推荐多样性，推荐重复率≤10%",
+          title: "双引擎冷启动分流",
+          desc: "内置规则探针拦截缺量新用户，采用低门槛静态推荐，积累历史后采用协同引擎进阶推流",
           icon: "el-icon-data-line",
           gradient: "linear-gradient(135deg, #ef4444, #f87171)"
         }
@@ -165,8 +164,10 @@ export default {
       quickNavs: [
         { label: "饮食仪表盘", icon: "el-icon-odometer", path: "/diet/dashboard", gradient: "linear-gradient(135deg, #6366f1, #818cf8)" },
         { label: "食物管理", icon: "el-icon-food", path: "/diet/food", gradient: "linear-gradient(135deg, #10b981, #34d399)" },
+        { label: "健康目标", icon: "el-icon-aim", path: "/diet/goal", gradient: "linear-gradient(135deg, #f59e0b, #fbbf24)" },
         { label: "饮食记录", icon: "el-icon-document", path: "/diet/record", gradient: "linear-gradient(135deg, #ec4899, #f472b6)" },
         { label: "智能推荐", icon: "el-icon-magic-stick", path: "/diet/recommendation", gradient: "linear-gradient(135deg, #8b5cf6, #a78bfa)" },
+        { label: "健康画像", icon: "el-icon-user", path: "/diet/profile", gradient: "linear-gradient(135deg, #f97316, #fb923c)" },
         { label: "ML管理", icon: "el-icon-cpu", path: "/diet/ml/management", gradient: "linear-gradient(135deg, #ef4444, #f87171)" }
       ],
       techGroups: [
@@ -175,9 +176,7 @@ export default {
           items: [
             { name: "Spring Boot", color: "#6db33f" },
             { name: "MyBatis", color: "#c0392b" },
-            { name: "MySQL", color: "#4479a1" },
-            { name: "MongoDB", color: "#47a248" },
-            { name: "Redis", color: "#dc382d" }
+            { name: "MySQL", color: "#4479a1" }
           ]
         },
         {
@@ -194,8 +193,7 @@ export default {
           items: [
             { name: "Python", color: "#3776ab" },
             { name: "协同过滤", color: "#e44d26" },
-            { name: "内容推荐", color: "#ff6d00" },
-            { name: "深度学习", color: "#764abc" }
+            { name: "外挂规则拦截", color: "#ff6d00" }
           ]
         }
       ],

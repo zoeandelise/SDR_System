@@ -102,7 +102,7 @@
             icon="el-icon-view"
             @click="handleDetail(scope.row)"
             v-hasPermi="['diet:record:query']"
-          >审阅违规</el-button>
+          >详情</el-button>
           <el-button
             size="mini"
             type="text"
@@ -246,7 +246,7 @@ export default {
     /** 删除按钮操作 */
     handleDelete(row) {
       const recordIds = row.recordId || this.ids;
-      this.$modal.confirm('是否确认查处并删除这 ' + (row.recordId ? '1' : this.ids.length) + ' 条系统饮食监控违规数据？').then(function() {
+      this.$modal.confirm('是否确认删除这 ' + (row.recordId ? '1' : this.ids.length) + ' 条饮食记录数据？').then(function() {
         return delRecord(recordIds);
       }).then(() => {
         this.getList();

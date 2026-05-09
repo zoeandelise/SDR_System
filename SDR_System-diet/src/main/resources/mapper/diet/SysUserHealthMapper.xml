@@ -56,7 +56,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectSysUserHealthByUserId" parameterType="Long" resultMap="SysUserHealthResult">
         <include refid="selectSysUserHealthVo"/>
-        where h.user_id = #{userId}
+        where h.user_id = #{userId} order by h.create_time desc limit 1
     </select>
         
     <insert id="insertSysUserHealth" parameterType="com.SDR_System.system.domain.SysUserHealth" useGeneratedKeys="true" keyProperty="healthId">

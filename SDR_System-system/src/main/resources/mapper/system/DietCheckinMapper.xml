@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.SDR_System.system.mapper.DietCheckinMapper">
+    
+    <resultMap type="DietCheckin" id="DietCheckinResult">
+        <result property="checkinId"    column="checkin_id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="userName"    column="user_name"    />
+        <result property="checkinDate"    column="checkin_date"    />
+        <result property="mealType"    column="meal_type"    />
+        <result property="mood"    column="mood"    />
+        <result property="notes"    column="note"    />
+        <result property="createTime"    column="create_time"    />
+    </resultMap>
+
+    <sql id="selectDietCheckinVo">
+        select c.checkin_id, c.user_id, u.user_name, c.checkin_date, c.meal_type, c.mood, c.note, c.create_time 
+        from diet_checkin c
+        left join sys_user u on c.user_id = u.user_id
+    </sql>
+
+    <select id="selectDietCheckinList" parameterType="DietCheckin" resultMap="DietCheckinResult">
+        <include refid="selectDietCheckinVo"/>
+        <where>  
+            <if test="userId != null "> and c.user_id = #{userId}</if>
+            <if test="userName != null  and userName != ''"> and u.user_name like concat('%', #{userName}, '%')</if>
+            <if test="checkinDate != null "> and c.checkin_date = #{checkinDate}</if>
+            <if test="mealType != null  and mealType != ''"> and c.meal_type = #{mealType}</if>
+            <if test="mood != null  and mood != ''"> and c.mood = #{mood}</if>
+        </where>
+        order by c.checkin_date desc, c.meal_type desc
+    </select>
+    
+    <select id="selectDietCheckinByCheckinId" parameterType="Long" resultMap="DietCheckinResult">
+        <include refid="selectDietCheckinVo"/>
+        where c.checkin_id = #{checkinId}
+    </select>
+        
+    <delete id="deleteDietCheckinByCheckinId" parameterType="Long">
+        delete from diet_checkin where checkin_id = #{checkinId}
+    </delete>
+
+    <delete id="deleteDietCheckinByCheckinIds" parameterType="String">
+        delete from diet_checkin where checkin_id in 
+        <foreach item="checkinId" collection="array" open="(" separator="," close=")">
+            #{checkinId}
+        </foreach>
+    </delete>
+</mapper>

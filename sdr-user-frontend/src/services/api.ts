@@ -136,7 +136,7 @@ api.interceptors.response.use(
           sessionStorage.removeItem('token');
           // 避免在登录页面重复跳转
           if (!window.location.pathname.includes('/login')) {
-            window.location.href = '/auth/login';
+            window.location.href = '/login';
           }
           throw new Error('登录已过期，请重新登录');
 
@@ -189,6 +189,22 @@ export const dashboardApi = {
   // 获取今日营养摄入
   getTodayNutrition: (): Promise<RuoYiResponse<any>> =>
     api.get(API_ENDPOINTS.diet.todayNutrition),
+};
+
+// =================== 打卡API (Phase 25) ===================
+
+export const checkinApi = {
+  // 执行打卡
+  doCheckin: (params: { mood?: string; note?: string } = {}): Promise<RuoYiResponse<any>> =>
+    api.post(API_ENDPOINTS.diet.checkin, params),
+
+  // 获取打卡状态
+  getStatus: (): Promise<RuoYiResponse<any>> =>
+    api.get(API_ENDPOINTS.diet.checkinStatus),
+
+  // 获取排行榜
+  getRanking: (): Promise<RuoYiResponse<any>> =>
+    api.get(API_ENDPOINTS.diet.checkinRanking),
 };
 
 // =================== 饮食记录API ===================

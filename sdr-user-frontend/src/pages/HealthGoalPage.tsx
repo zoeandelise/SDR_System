@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../components/ui/Toast';
 
@@ -23,15 +23,11 @@ interface HealthGoal {
   portionPreference?: string;
 }
 
-interface RecommendationPlan {
-  recommendationId: number;
-  recommendationDate: string;
-  recommendedFoods: string;
-  isAccepted: string;
-}
 
 const HealthGoalPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [goal, setGoal] = useState<HealthGoal>({
     userId: 1,
     gender: '0',
@@ -43,15 +39,17 @@ const HealthGoalPage: React.FC = () => {
     allergies: '',
     dietPreferences: '',
     dailyCalorieGoal: 2000,
-    dailyProteinGoal: 80,
+    dailyProteinGoal: 100,
     dailyCarbGoal: 250,
-    dailyFatGoal: 60,
+    dailyFatGoal: 67,
     healthGoal: '1',
     portionPreference: 'normal'
   });
-  const [recommendations, setRecommendations] = useState<RecommendationPlan[]>([]);
   const [loading, setLoading] = useState(false);
-  const [editing, setEditing] = useState(false);
+
+  // 如果是携带新用户标识进来的，直接开启变更为编辑模式
+  const isNewUserRef = React.useRef((location.state as any)?.showNewUserWelcome);
+  const [editing, setEditing] = useState(!!isNewUserRef.current);
 
   const [todayWeight, setTodayWeight] = useState<string>('');
   const [weightHistory, setWeightHistory] = useState<any[]>([]);
@@ -64,8 +62,14 @@ const HealthGoalPage: React.FC = () => {
   const preferenceOptions = ['清淡', '素食', '低脂', '低糖', '高蛋白', '辣'];
 
   useEffect(() => {
+    // 首次进来如果带有新用户标记，提醒
+    if (isNewUserRef.current) {
+      showToast('success', '欢迎来到 SDR 健康系统！为了定制专属 AI 饮食计划，请先补全您的各项身体指标。');
+      // 避免重复提示
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+
     loadHealthGoal();
-    loadRecommendations();
     loadWeightTrend();
     loadWeightHistory();
   }, []);
@@ -86,9 +90,9 @@ const HealthGoalPage: React.FC = () => {
           allergies: h.allergies || '',
           dietPreferences: h.dietPreferences || h.diet_preferences || '',
           dailyCalorieGoal: h.dailyCalorieGoal || h.daily_calorie_goal || 2000,
-          dailyProteinGoal: h.dailyProteinGoal || h.daily_protein_goal || 80,
+          dailyProteinGoal: h.dailyProteinGoal || h.daily_protein_goal || 100,
           dailyCarbGoal: h.dailyCarbGoal || h.daily_carb_goal || 250,
-          dailyFatGoal: h.dailyFatGoal || h.daily_fat_goal || 60,
+          dailyFatGoal: h.dailyFatGoal || h.daily_fat_goal || 67,
           targetWeight: h.targetWeight || h.target_weight,
           healthGoal: h.healthGoal || h.health_goal || '1'
         });
@@ -98,18 +102,6 @@ const HealthGoalPage: React.FC = () => {
     }
   };
 
-  const loadRecommendations = async () => {
-    try {
-      const response: any = await api.get('/api/user/diet/my-recommendations', {
-        params: { days: 30 }
-      });
-      if (response.code === 200 && response.data) {
-        setRecommendations(response.data.data.filter((r: any) => r.mealType === '9'));
-      }
-    } catch (error) {
-      console.error('加载推荐方案失败:', error);
-    }
-  };
 
   const loadWeightTrend = async () => {
     try {
@@ -168,13 +160,17 @@ const HealthGoalPage: React.FC = () => {
       setLoading(true);
       const response: any = await api.post('/diet/health/my', goal);
       if (response.code === 200) {
-        alert('✅ 健康信息已保存！AI正在根据您的信息重新生成推荐方案...');
+        showToast('success', '健康信息保存成功！即将为您开启智能推荐之旅...');
         setEditing(false);
         loadHealthGoal();
-        triggerAIRecommendation();
+
+        // 延迟跳转以让用户看清成功提示
+        setTimeout(() => {
+          navigate('/smart-recommendation');
+        }, 1200);
       }
     } catch (error: any) {
-      alert('❌ 保存失败：' + (error.response?.data?.msg || error.message));
+      showToast('error', '保存失败：' + (error.response?.data?.msg || error.message));
     } finally {
       setLoading(false);
     }
@@ -194,78 +190,23 @@ const HealthGoalPage: React.FC = () => {
     setGoal({ ...goal, [field]: newTags.join(',') });
   };
 
-  const triggerAIRecommendation = async () => {
-    try {
-      const response: any = await api.post('/api/user/diet/daily-plan', {});
-      if (response.code === 200) {
-        const plan = response.data;
-        await api.post('/api/user/diet/save-daily-plan', plan);
-        alert('✅ AI已根据您的最新信息生成专属方案！');
-        setTimeout(() => {
-          navigate('/diet-history?tab=recommendations');
-        }, 500);
-      }
-    } catch (error) {
-      console.error('AI推荐失败:', error);
-    }
-  };
-
-  const handleApplyRecommendation = async (recId: number) => {
-    try {
-      const response: any = await api.post('/api/user/diet/plan/execute',
-        { recommendationId: recId }
-      );
-      if (response.code === 200) {
-        alert('✅ 方案已应用到今日饮食记录');
-        loadRecommendations();
-      }
-    } catch (error: any) {
-      alert('❌ 应用失败');
-    }
-  };
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] relative selection:bg-blue-100 selection:text-blue-900">
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-blue-200/20 to-purple-200/20 rounded-full blur-3xl -z-10 translate-x-1/3 -translate-y-1/4 pointer-events-none"></div>
-      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-green-200/20 to-yellow-200/20 rounded-full blur-3xl -z-10 -translate-x-1/3 translate-y-1/4 pointer-events-none"></div>
+    <div className="animate-fadeIn space-y-6">
 
-      <nav className="bg-white/70 backdrop-blur-xl shadow-sm border-b border-white/50 sticky top-0 z-50 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors group px-3 py-2 rounded-lg hover:bg-black/5"
-            >
-              <span className="group-hover:-translate-x-1 transition-transform duration-300">←</span>
-              <span className="font-medium">返回首页</span>
-            </button>
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white shadow-md">
-                🎯
-              </div>
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700">
-                健康目标管理
-              </h1>
-            </div>
-            <div className="w-24"></div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/60 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <h1 className="text-2xl font-extrabold text-gray-900 flex items-center gap-2">
               设置您的健康蓝图 <span className="text-2xl animate-bounce-slow">✨</span>
             </h1>
-            <p className="text-gray-500 mt-1">定制专属计划，开启健康生活新篇章</p>
+            <p className="text-gray-600 font-medium mt-1">定制专属计划，开启健康生活新篇章</p>
           </div>
 
           <div>
             {!editing ? (
               <button
                 onClick={() => setEditing(true)}
-                className="group relative px-6 py-3 bg-gray-900 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 overflow-hidden"
+                className="group relative px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 transition-all duration-300 overflow-hidden"
               >
                 <span className="relative z-10 flex items-center gap-2">
                   <span>✏️</span> 编辑全部信息
@@ -305,15 +246,15 @@ const HealthGoalPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-1 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl shadow-xl p-6 text-white relative overflow-hidden group hover:shadow-2xl transition-shadow duration-500">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl transform translate-x-10 -translate-y-10 group-hover:scale-125 transition-transform duration-700"></div>
+          <div className="md:col-span-1 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full blur-3xl transform translate-x-10 -translate-y-10 group-hover:scale-125 transition-transform duration-700"></div>
 
             <div className="relative z-10 h-full flex flex-col justify-between space-y-6">
               <div>
-                <h2 className="text-xl font-bold flex items-center gap-2 mb-1">
-                  <span className="bg-white/20 p-1.5 rounded-lg">⚖️</span> 今日体重
+                <h2 className="text-xl font-bold flex items-center gap-2 mb-1 text-gray-800">
+                  <span className="bg-blue-100 text-blue-600 p-1.5 rounded-lg text-lg">⚖️</span> 今日体重
                 </h2>
-                <p className="text-blue-100 text-sm font-medium opacity-90 pl-9">定期记录，看见改变</p>
+                <p className="text-gray-500 text-sm font-bold pl-9">定期记录，看见改变</p>
               </div>
 
               <div className="flex flex-col items-center justify-center py-4">
@@ -324,20 +265,20 @@ const HealthGoalPage: React.FC = () => {
                     placeholder="0.0"
                     value={todayWeight}
                     onChange={(e) => setTodayWeight(e.target.value)}
-                    className="w-40 bg-transparent text-6xl font-bold text-center text-white placeholder-blue-300/50 focus:outline-none border-b-2 border-white/30 focus:border-white transition-all pb-2"
+                    className="w-40 bg-transparent text-6xl font-black text-center text-gray-800 placeholder-gray-300 focus:outline-none border-b-2 border-gray-200 focus:border-blue-500 transition-all pb-2"
                   />
-                  <span className="absolute bottom-4 -right-8 text-xl text-blue-200 font-medium">kg</span>
+                  <span className="absolute bottom-4 -right-8 text-xl text-gray-600 font-bold">kg</span>
                 </div>
               </div>
 
               <button
                 onClick={handleRecordWeight}
                 disabled={recordingWeight}
-                className="w-full py-3.5 bg-white text-blue-600 font-bold rounded-xl hover:bg-blue-50 focus:ring-4 focus:ring-blue-400/30 transition-all shadow-lg active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 group-active:translate-y-0.5"
+                className="w-full py-3.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 focus:ring-4 focus:ring-blue-100 transition-all shadow-md active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 group-active:translate-y-0.5"
               >
                 {recordingWeight ? (
                   <>
-                    <svg className="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -350,7 +291,7 @@ const HealthGoalPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="md:col-span-2 bg-white/70 backdrop-blur-xl rounded-3xl shadow-sm border border-white/60 p-6 flex flex-col justify-between relative overflow-hidden">
+          <div className="md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col justify-between relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-blue-50 to-transparent rounded-full -z-10 translate-x-1/3 -translate-y-1/3"></div>
 
             {weightTrend ? (
@@ -367,8 +308,8 @@ const HealthGoalPage: React.FC = () => {
 
                 <div className="grid grid-cols-4 gap-4 mb-6">
                   <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow text-center group">
-                    <div className="text-gray-400 text-xs mb-1 group-hover:text-blue-500 transition-colors">初始体重</div>
-                    <div className="text-xl font-bold text-gray-800">{weightTrend.firstWeight || weightTrend.initialWeight || '-'} <span className="text-xs text-gray-400 font-normal">kg</span></div>
+                    <div className="text-gray-500 font-medium text-xs mb-1 group-hover:text-blue-600 transition-colors">初始体重</div>
+                    <div className="text-2xl font-black text-gray-900">{weightTrend.firstWeight || weightTrend.initialWeight || '-'} <span className="text-xs text-gray-500 font-medium">kg</span></div>
                   </div>
                   <div className="bg-gradient-to-br from-blue-50 to-white p-4 rounded-2xl shadow-sm border border-blue-100 hover:shadow-md transition-shadow text-center group relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-8 h-8 bg-blue-100 rounded-bl-xl -mr-2 -mt-2"></div>
@@ -376,14 +317,14 @@ const HealthGoalPage: React.FC = () => {
                     <div className="text-2xl font-bold text-blue-700">{weightTrend.latestWeight || goal.weight || '-'} <span className="text-sm font-normal">kg</span></div>
                   </div>
                   <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow text-center group">
-                    <div className="text-gray-400 text-xs mb-1 group-hover:text-green-500 transition-colors">目标体重</div>
-                    <div className="text-xl font-bold text-gray-800">{weightTrend.targetWeight || '-'} <span className="text-xs text-gray-400 font-normal">kg</span></div>
+                    <div className="text-gray-500 font-medium text-xs mb-1 group-hover:text-green-600 transition-colors">目标体重</div>
+                    <div className="text-2xl font-black text-gray-900">{weightTrend.targetWeight || '-'} <span className="text-xs text-gray-500 font-medium">kg</span></div>
                   </div>
                   <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow text-center group">
-                    <div className="text-gray-400 text-xs mb-1 group-hover:text-purple-500 transition-colors">累计变化</div>
-                    <div className={`text-xl font-bold ${(weightTrend.totalChange || 0) <= 0 ? 'text-green-600' : 'text-orange-500'}`}>
-                      {Math.abs(weightTrend.totalChange || 0)} <span className="text-xs font-normal">kg</span>
-                      <span className="text-xs ml-1 block">{(weightTrend.totalChange || 0) <= 0 ? '↓ 下降' : '↑ 上升'}</span>
+                    <div className="text-gray-500 font-medium text-xs mb-1 group-hover:text-purple-600 transition-colors">累计变化</div>
+                    <div className={`text-2xl font-black ${(weightTrend.totalChange || 0) <= 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                      {Math.abs(weightTrend.totalChange || 0)} <span className="text-xs font-medium">kg</span>
+                      <span className="text-xs ml-1 block mt-1">{(weightTrend.totalChange || 0) <= 0 ? '↓ 下降' : '↑ 上升'}</span>
                     </div>
                   </div>
                 </div>
@@ -414,14 +355,14 @@ const HealthGoalPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 p-6 hover:shadow-md transition-shadow duration-300">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-300">
             <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
               <span className="bg-blue-100 text-blue-600 p-1.5 rounded-lg text-lg">👤</span>
               基本信息
             </h2>
             <div className="grid grid-cols-2 gap-y-6 gap-x-4">
               <div className="col-span-1">
-                <label className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-1.5 block">性别</label>
+                <label className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1.5 block">性别</label>
                 {editing ? (
                   <select
                     value={goal.gender}
@@ -438,7 +379,7 @@ const HealthGoalPage: React.FC = () => {
                 )}
               </div>
               <div className="col-span-1">
-                <label className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-1.5 block">年龄</label>
+                <label className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1.5 block">年龄</label>
                 {editing ? (
                   <div className="relative">
                     <input type="number" value={goal.age} onChange={(e) => setGoal({ ...goal, age: parseInt(e.target.value) })}
@@ -450,7 +391,7 @@ const HealthGoalPage: React.FC = () => {
                 )}
               </div>
               <div className="col-span-1">
-                <label className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-1.5 block">身高</label>
+                <label className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1.5 block">身高</label>
                 {editing ? (
                   <div className="relative">
                     <input type="number" value={goal.height} onChange={(e) => setGoal({ ...goal, height: parseInt(e.target.value) })}
@@ -461,16 +402,7 @@ const HealthGoalPage: React.FC = () => {
                   <div className="font-bold text-gray-700 text-lg">{goal.height} <span className="text-sm font-normal text-gray-400">cm</span></div>
                 )}
               </div>
-              <div className="col-span-1">
-                <label className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-1.5 block">职业</label>
-                {editing ? (
-                  <input type="text" value={goal.occupation || ''} onChange={(e) => setGoal({ ...goal, occupation: e.target.value })}
-                    placeholder="未设置"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all text-sm" />
-                ) : (
-                  <div className="font-bold text-gray-700 text-lg">{goal.occupation || <span className="text-gray-400 font-normal italic text-sm">未设置</span>}</div>
-                )}
-              </div>
+
             </div>
           </div>
 
@@ -502,7 +434,7 @@ const HealthGoalPage: React.FC = () => {
                       type="text"
                       value={goal.diseases}
                       onChange={(e) => setGoal({ ...goal, diseases: e.target.value })}
-                      placeholder="其他疾病（手动输入，逗号分隔）"
+                      placeholder=""
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                     />
                   </div>
@@ -541,7 +473,7 @@ const HealthGoalPage: React.FC = () => {
                       type="text"
                       value={goal.allergies}
                       onChange={(e) => setGoal({ ...goal, allergies: e.target.value })}
-                      placeholder="其他过敏源（手动输入，逗号分隔）"
+                      placeholder=""
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                     />
                   </div>
@@ -580,7 +512,7 @@ const HealthGoalPage: React.FC = () => {
                       type="text"
                       value={goal.dietPreferences}
                       onChange={(e) => setGoal({ ...goal, dietPreferences: e.target.value })}
-                      placeholder="其他偏好（手动输入，逗号分隔）"
+                      placeholder=""
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                     />
                   </div>
@@ -625,7 +557,7 @@ const HealthGoalPage: React.FC = () => {
                   <div className="font-bold text-gray-900">
                     {val === '0' ? '减脂' : val === '1' ? '增肌' : '保持'}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs font-medium text-gray-600 mt-1">
                     {val === '0' ? '控制热量摄入' : val === '1' ? '增加蛋白质' : '均衡饮食'}
                   </div>
                 </button>
@@ -652,135 +584,12 @@ const HealthGoalPage: React.FC = () => {
                 >
                   <div className="text-2xl mb-2">{opt.emoji}</div>
                   <div className="font-bold text-gray-900">{opt.label}</div>
-                  <div className="text-xs text-gray-500 mt-1">{opt.desc}</div>
+                  <div className="text-xs font-medium text-gray-600 mt-1">{opt.desc}</div>
                 </button>
               ))}
             </div>
           </div>
         </div>
-
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 p-6 hover:shadow-md transition-shadow duration-300">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <span className="bg-yellow-100 text-yellow-600 p-1.5 rounded-lg text-lg">⚡</span>
-              每日营养目标
-            </h2>
-            <div className="text-xs text-gray-400 font-medium px-2 py-1 bg-gray-50 rounded-lg">AI 推荐值</div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-xl p-4 border border-orange-100 relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-16 h-16 bg-orange-200/50 rounded-full blur-2xl group-hover:scale-150 transition-transform"></div>
-              <label className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-1 block relative z-10">Total Calories</label>
-              {editing ? (
-                <input type="number" value={goal.dailyCalorieGoal} onChange={(e) => setGoal({ ...goal, dailyCalorieGoal: parseInt(e.target.value) })}
-                  className="w-full bg-white/80 border border-orange-200 rounded-lg px-2 py-1 text-orange-900 font-bold outline-none focus:ring-2 focus:ring-orange-200 text-xl" />
-              ) : (
-                <div className="text-2xl font-black text-orange-700 relative z-10">{goal.dailyCalorieGoal} <span className="text-sm font-normal text-orange-500">kcal</span></div>
-              )}
-            </div>
-
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-4 border border-blue-100 relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-16 h-16 bg-blue-200/50 rounded-full blur-2xl group-hover:scale-150 transition-transform"></div>
-              <label className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1 block relative z-10">Protein</label>
-              {editing ? (
-                <input type="number" value={goal.dailyProteinGoal} onChange={(e) => setGoal({ ...goal, dailyProteinGoal: parseInt(e.target.value) })}
-                  className="w-full bg-white/80 border border-blue-200 rounded-lg px-2 py-1 text-blue-900 font-bold outline-none focus:ring-2 focus:ring-blue-200 text-xl" />
-              ) : (
-                <div className="text-2xl font-black text-blue-700 relative z-10">{goal.dailyProteinGoal} <span className="text-sm font-normal text-blue-500">g</span></div>
-              )}
-            </div>
-
-            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100/50 rounded-xl p-4 border border-yellow-100 relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-16 h-16 bg-yellow-200/50 rounded-full blur-2xl group-hover:scale-150 transition-transform"></div>
-              <label className="text-xs font-bold text-yellow-600 uppercase tracking-wider mb-1 block relative z-10">Carbs</label>
-              {editing ? (
-                <input type="number" value={goal.dailyCarbGoal} onChange={(e) => setGoal({ ...goal, dailyCarbGoal: parseInt(e.target.value) })}
-                  className="w-full bg-white/80 border border-yellow-200 rounded-lg px-2 py-1 text-yellow-900 font-bold outline-none focus:ring-2 focus:ring-yellow-200 text-xl" />
-              ) : (
-                <div className="text-2xl font-black text-yellow-700 relative z-10">{goal.dailyCarbGoal} <span className="text-sm font-normal text-yellow-500">g</span></div>
-              )}
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl p-4 border border-purple-100 relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-16 h-16 bg-purple-200/50 rounded-full blur-2xl group-hover:scale-150 transition-transform"></div>
-              <label className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-1 block relative z-10">Fat</label>
-              {editing ? (
-                <input type="number" value={goal.dailyFatGoal} onChange={(e) => setGoal({ ...goal, dailyFatGoal: parseInt(e.target.value) })}
-                  className="w-full bg-white/80 border border-purple-200 rounded-lg px-2 py-1 text-purple-900 font-bold outline-none focus:ring-2 focus:ring-purple-200 text-xl" />
-              ) : (
-                <div className="text-2xl font-black text-purple-700 relative z-10">{goal.dailyFatGoal} <span className="text-sm font-normal text-purple-500">g</span></div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 rounded-2xl shadow-2xl p-8 text-white relative overflow-hidden">
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-          <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold flex items-center gap-3">
-                <span className="p-2 bg-white/10 rounded-xl text-2xl">🤖</span>
-                <div>
-                  <div>AI 智能方案</div>
-                  <div className="text-xs font-normal text-purple-200 opacity-80">Based on your latest health metrics</div>
-                </div>
-              </h2>
-              <button
-                onClick={() => navigate('/smart-recommendation')}
-                className="px-5 py-2.5 bg-white text-purple-900 rounded-xl hover:bg-purple-50 font-bold text-sm shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
-              >
-                Let AI Generate 🌱
-              </button>
-            </div>
-
-            {recommendations.length > 0 ? (
-              <div className="space-y-4">
-                {recommendations.map((rec, idx) => (
-                  <div key={idx} className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden hover:bg-white/15 transition-colors">
-                    <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]"></div>
-                        <div className="font-medium text-white/90">{rec.recommendationDate} 每日方案</div>
-                      </div>
-
-                      {rec.isAccepted === '1' ? (
-                        <span className="px-3 py-1 bg-green-500/20 text-green-300 border border-green-500/30 rounded-full text-xs font-bold flex items-center gap-1">
-                          <span>✓</span> 已应用
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleApplyRecommendation(rec.recommendationId)}
-                          className="px-4 py-1.5 bg-purple-500 hover:bg-purple-400 text-white text-xs font-bold rounded-lg transition-colors shadow-lg"
-                        >
-                          🚀 应用方案
-                        </button>
-                      )}
-                    </div>
-                    <div className="p-6 text-sm text-gray-300 leading-relaxed font-light">
-                      {rec.recommendedFoods}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/10 border-dashed">
-                <div className="text-5xl mb-4 animate-pulse">🔮</div>
-                <p className="text-purple-200 mb-6 font-light">AI 尚未为您生成专属饮食计划</p>
-                <button
-                  onClick={() => navigate('/smart-recommendation')}
-                  className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold shadow-lg hover:shadow-purple-500/30 hover:-translate-y-0.5 transition-all text-sm"
-                >
-                  立即生成 (Generate Now)
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

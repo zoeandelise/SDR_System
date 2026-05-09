@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>实体属性图一键生成与拖拽器</title>
+    <!-- 引入 vis-network 用于画关系图 -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body { font-family: 'SimSun', sans-serif; background: #f9f9f9; text-align: center; margin: 0; padding: 20px; }
+        h2 { margin-bottom: 10px; }
+        #network_wrapper { width: 800px; height: 500px; margin: 0 auto; border: 1px solid #ccc; background: white; padding: 10px; }
+        #mynetwork { width: 100%; height: 100%; }
+        .controls { margin-bottom: 15px; }
+        select, button { padding: 8px 15px; font-size: 16px; margin: 0 10px; cursor: pointer; }
+        .hint { color: #666; font-size: 14px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>实体属性图生成器 (支持随意拖拽自由排版)</h2>
+    <div class="controls">
+        <select id="entitySelect" onchange="loadEntity(this.value)">
+            <option value="user">1. 用户实体属性图</option>
+            <option value="profile">2. 健康档案实体属性图</option>
+            <option value="record">3. 饮食记录实体属性图</option>
+            <option value="food">4. 食物实体属性图</option>
+            <option value="post">5. 社区动态实体属性图</option>
+        </select>
+        <button onclick="downloadImage()">生成并下载图片 (PNG)</button>
+    </div>
+    
+    <div id="network_wrapper">
+        <div id="mynetwork"></div>
+    </div>
+    
+    <div class="hint">
+        💡 提示：按住鼠标左键可以**随意拖动**每个圆圈或方块，排好完美的十字或星状位置后，点击上方按钮直接下载！
+    </div>
+
+    <script type="text/javascript">
+        // 定义五个实体的结构
+        const entitiesData = {
+            "user": {
+                name: "用户",
+                attributes: ["id", "用户名", "登录密码", "昵称", "手机号", "性别", "头像路径", "状态", "创建时间"]
+            },
+            "profile": {
+                name: "健康档案",
+                attributes: ["id", "用户id", "当前身高", "当前体重", "目标类型", "目标体重", "目标卡路里", "更新时间"]
+            },
+            "record": {
+                name: "饮食记录",
+                attributes: ["id", "用户id", "餐次类型", "食物备注项", "总卡路里", "总蛋白质", "总碳水", "总脂肪", "记录日期"]
+            },
+            "food": {
+                name: "食物",
+                attributes: ["id", "食物名称", "分类名称", "卡路里", "蛋白质", "碳水化合物", "脂肪", "是否推荐", "创建时间"]
+            },
+            "post": {
+                name: "社区动态",
+                attributes: ["id", "用户id", "动态内容", "关联饮食记录id", "点赞数量", "发表时间"]
+            }
+        };
+
+        let network = null;
+
+        function getRadialPositions(numNodes, radius) {
+            const positions = [];
+            for (let i = 0; i < numNodes; i++) {
+                const angle = (i / numNodes) * 2 * Math.PI - Math.PI / 2; // 从正上方开始
+                positions.push({
+                    x: radius * Math.cos(angle),
+                    y: radius * Math.sin(angle)
+                });
+            }
+            return positions;
+        }
+
+        function loadEntity(key) {
+            const data = entitiesData[key];
+            const nodes = [];
+            const edges = [];
+
+            // 核心实体本身
+            nodes.push({
+                id: 0,
+                label: data.name,
+                shape: 'box', // 矩形
+                color: { background: 'white', border: 'black' },
+                font: { face: 'SimSun', size: 24, align: 'center' },
+                borderWidth: 1.5,
+                x: 0, y: 0, fixed: false
+            });
+
+            const attrs = data.attributes;
+            const positions = getRadialPositions(attrs.length, 180); // 半径 180 像素
+
+            attrs.forEach((attr, index) => {
+                const nId = index + 1;
+                nodes.push({
+                    id: nId,
+                    label: attr,
+                    shape: 'ellipse', // 椭圆
+                    color: { background: 'white', border: 'black' },
+                    font: { face: 'SimSun', size: 18, align: 'center' },
+                    borderWidth: 1.5,
+                    x: positions[index].x,
+                    y: positions[index].y
+                });
+
+                edges.push({
+                    from: 0,
+                    to: nId,
+                    color: { color: 'black' },
+                    width: 1.5,
+                    smooth: false // 直线
+                });
+            });
+
+            // 挂载绘制
+            var container = document.getElementById('mynetwork');
+            var visData = {
+                nodes: new vis.DataSet(nodes),
+                edges: new vis.DataSet(edges)
+            };
+            var options = {
+                physics: {
+                    enabled: false // 禁用物理弹簧引擎，保持固定的相对位置，但允许被拖拽
+                },
+                interaction: {
+                    dragNodes: true,
+                    dragView: false,
+                    zoomView: false
+                }
+            };
+            
+            if(network !== null) {
+                network.destroy();
+            }
+            network = new vis.Network(container, visData, options);
+
+            // 每次渲染完毕后确保画面自适应并居中
+            network.once("beforeDrawing", function() {
+                network.focus(0, {
+                    scale: 1.0
+                });
+            });
+        }
+
+        // 下载保存为图片
+        function downloadImage() {
+            var canvas = document.querySelector("#mynetwork canvas");
+            
+            // 为了让背景是白色而不是透明，我们新建一个canvas画白底再画图
+            var newCanvas = document.createElement("canvas");
+            var ctx = newCanvas.getContext("2d");
+            newCanvas.width = canvas.width;
+            newCanvas.height = canvas.height;
+            
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+            ctx.drawImage(canvas, 0, 0);
+
+            var dataURL = newCanvas.toDataURL("image/png");
+
+            var a = document.createElement('a');
+            a.href = dataURL;
+            const currentName = entitiesData[document.getElementById('entitySelect').value].name + "实体属性图.png";
+            a.download = currentName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // 默认加载第一个
+        window.onload = function() {
+            loadEntity('user');
+        }
+    </script>
+</body>
+</html>

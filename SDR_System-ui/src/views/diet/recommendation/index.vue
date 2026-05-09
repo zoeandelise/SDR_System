@@ -112,13 +112,14 @@
         </template>
       </el-table-column>
       
-      <el-table-column label="方案类型" width="110" align="center">
+      <el-table-column label="策略溯源" width="220" align="center">
         <template slot-scope="scope">
-          <el-tag v-if="scope.row.mealType === '9'" type="warning">
-            <i class="el-icon-food"></i> 全天方案
-          </el-tag>
-          <el-tag v-else type="info">
-            {{ getMealTypeName(scope.row.mealType) }}
+          <el-tag 
+            :type="scope.row.algorithmType && scope.row.algorithmType.includes('冷启动') ? 'warning' : 'success'" 
+            size="small"
+            effect="dark">
+            <i :class="scope.row.algorithmType && scope.row.algorithmType.includes('冷启动') ? 'el-icon-magic-stick' : 'el-icon-cpu'"></i>
+            {{ scope.row.algorithmType || '未知策略' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -178,12 +179,11 @@
           <el-descriptions-item label="生成日期">
             {{ currentPlan.recommendationDate }}
           </el-descriptions-item>
-          <el-descriptions-item label="方案类型">
-            <el-tag v-if="currentPlan.mealType === '9'" type="warning">全天方案</el-tag>
-            <el-tag v-else>{{ getMealTypeName(currentPlan.mealType) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="算法类型">
-            <el-tag type="success">{{ currentPlan.algorithmType }}</el-tag>
+          <el-descriptions-item label="策略溯源">
+            <el-tag :type="currentPlan.algorithmType && currentPlan.algorithmType.includes('冷启动') ? 'warning' : 'success'" effect="dark">
+              <i :class="currentPlan.algorithmType && currentPlan.algorithmType.includes('冷启动') ? 'el-icon-magic-stick' : 'el-icon-cpu'"></i>
+              {{ currentPlan.algorithmType || '未知策略' }}
+            </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="执行状态" :span="2">
             <el-tag v-if="currentPlan.isAccepted === '1'" type="success">
@@ -307,18 +307,6 @@ export default {
           this.$message.error('删除失败');
         });
       });
-    },
-    
-    /** 获取餐次名称 */
-    getMealTypeName(mealType) {
-      const names = {
-        '0': '早餐',
-        '1': '午餐',
-        '2': '晚餐',
-        '3': '加餐',
-        '9': '全天方案'
-      };
-      return names[mealType] || '未知';
     }
   }
 };

@@ -48,16 +48,19 @@ export const API_ENDPOINTS = {
     getUserInfo: '/getInfo',
     captcha: '/captchaImage'
   },
-  
+
   // 用户饮食相关
   diet: {
     dashboard: '/api/user/diet/dashboard',
     todayNutrition: '/api/user/diet/nutrition/today',
     records: '/api/user/diet/records',
     statistics: '/api/user/diet/statistics',
-    trends: '/api/user/diet/trends'
+    trends: '/api/user/diet/trends',
+    checkin: '/api/user/diet/checkin',
+    checkinStatus: '/api/user/diet/checkin/status',
+    checkinRanking: '/api/user/diet/checkin/ranking',
   },
-  
+
   // 食物数据库
   foods: {
     search: '/api/user/diet/foods/search',
@@ -65,12 +68,12 @@ export const API_ENDPOINTS = {
     detail: '/api/user/diet/foods',
     category: '/api/user/diet/foods/category'
   },
-  
+
   // AI识别
   ai: {
     recognize: '/api/user/diet/recognize'
   },
-  
+
   // 通用接口
   common: {
     upload: '/common/upload',

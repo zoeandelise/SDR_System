@@ -4,6 +4,8 @@ import com.SDR_System.common.core.controller.BaseController;
 import com.SDR_System.common.core.domain.AjaxResult;
 import com.SDR_System.diet.service.MLDataService;
 import com.SDR_System.diet.service.impl.MLRecommendationService;
+import com.SDR_System.common.annotation.Log;
+import com.SDR_System.common.enums.BusinessType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -90,6 +92,7 @@ public class DietMLController extends BaseController {
      * 启动模型训练
      * URL: POST /diet/ml/model/train
      */
+    @Log(title = "推荐模型训练", businessType = BusinessType.OTHER)
     @PostMapping({"/model/train", "/training/start"})
     public AjaxResult startTraining(@RequestBody Map<String, Object> params) {
         try {
@@ -141,6 +144,7 @@ public class DietMLController extends BaseController {
      * 停止模型训练
      * URL: POST /diet/ml/training/stop
      */
+    @Log(title = "推荐模型断联", businessType = BusinessType.OTHER)
     @PostMapping("/training/stop")
     public AjaxResult stopTraining(@RequestBody(required = false) Map<String, Object> params) {
         try {
@@ -163,6 +167,7 @@ public class DietMLController extends BaseController {
      * 测试ML推荐
      * URL: POST /diet/ml/recommend
      */
+    @Log(title = "算法干预测试", businessType = BusinessType.OTHER)
     @PostMapping("/recommend")
     public AjaxResult testRecommendation(@RequestBody Map<String, Object> params) {
         try {
@@ -172,14 +177,20 @@ public class DietMLController extends BaseController {
                 params.get("mealType").toString() : "1";
             Integer nRecommendations = params.containsKey("nRecommendations") ? 
                 Integer.valueOf(params.get("nRecommendations").toString()) : 8;
+                
+            // Phase 14: 混合多模态干预参数
+            String target = params.containsKey("target") ? params.get("target").toString() : "";
+            String allergies = params.containsKey("allergies") ? params.get("allergies").toString() : "";
+            String disease = params.containsKey("disease") ? params.get("disease").toString() : "";
+            String appetite = params.containsKey("appetite") ? params.get("appetite").toString() : "normal";
             
             if (userId == null) {
                 return AjaxResult.error("用户ID不能为空");
             }
             
-            // 调用ML推荐服务
+            // 调用ML推荐服务（追加传递多模态混合参数）
             Map<String, Object> result = mlRecommendationService.getMLRecommendations(
-                userId, mealType, nRecommendations);
+                userId, mealType, nRecommendations, target, allergies, disease, appetite);
             
             return AjaxResult.success("推荐生成成功", result);
             
@@ -193,6 +204,7 @@ public class DietMLController extends BaseController {
      * 算法对比测试
      * URL: POST /diet/ml/test/compare
      */
+    @Log(title = "推荐算法竞赛", businessType = BusinessType.OTHER)
     @PostMapping("/test/compare")
     public AjaxResult compareAlgorithms(@RequestBody Map<String, Object> params) {
         try {
@@ -213,6 +225,33 @@ public class DietMLController extends BaseController {
         } catch (Exception e) {
             logger.error("算法对比失败", e);
             return AjaxResult.error("算法对比失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 生成协同过滤原理的关系图谱 (Nodes & Links)
+     * URL: POST /diet/ml/test/collaborative-graph
+     */
+    @PostMapping("/test/collaborative-graph")
+    public AjaxResult getCollaborativeGraph(@RequestBody Map<String, Object> params) {
+        try {
+            Long userId = params.containsKey("userId") ? 
+                Long.valueOf(params.get("userId").toString()) : null;
+            String mealType = params.containsKey("mealType") ? 
+                params.get("mealType").toString() : "1";
+            
+            if (userId == null) {
+                return AjaxResult.error("用户ID不能为空");
+            }
+            
+            // 调度服务层抓取拓扑图网络
+            Map<String, Object> graphData = mlRecommendationService.buildCollaborativeGraph(userId, mealType);
+            
+            return AjaxResult.success("图谱构建完成", graphData);
+            
+        } catch (Exception e) {
+            logger.error("构建协同过滤图谱失败", e);
+            return AjaxResult.error("构建协同图谱失败: " + e.getMessage());
         }
     }
 }

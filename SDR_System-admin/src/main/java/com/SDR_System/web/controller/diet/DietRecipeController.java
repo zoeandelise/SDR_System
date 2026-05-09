@@ -19,6 +19,9 @@ import com.SDR_System.common.core.controller.BaseController;
 import com.SDR_System.common.core.domain.AjaxResult;
 import com.SDR_System.common.enums.BusinessType;
 import com.SDR_System.common.utils.SecurityUtils;
+import com.SDR_System.system.domain.DietFavorites;
+import com.SDR_System.system.mapper.DietFavoritesMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 我的食谱控制器
@@ -35,6 +38,9 @@ public class DietRecipeController extends BaseController
     // @Autowired
     // private IDietRecommendationService dietRecommendationService;
 
+    @Autowired
+    private DietFavoritesMapper dietFavoritesMapper;
+
     /**
      * 获取用户的食谱列表（基于推荐方案）
      */
@@ -42,6 +48,7 @@ public class DietRecipeController extends BaseController
     public AjaxResult getRecipeList(@RequestParam(required = false) Long userId)
     {
         try {
+            Long favoriteUserId = getCurrentUserId();
             // 权限控制：非管理员只能查看自己的食谱
             if (userId == null) {
                 userId = getCurrentUserId();
@@ -118,6 +125,8 @@ public class DietRecipeController extends BaseController
             recipeList.add(recipe1);
             recipeList.add(recipe2);
             recipeList.add(recipe3);
+
+            decorateRecipeFavorited(recipeList, favoriteUserId);
             
             Map<String, Object> result = new HashMap<>();
             result.put("recipes", recipeList);
@@ -158,6 +167,14 @@ public class DietRecipeController extends BaseController
             recipe.put("isOriginal", true);
             recipe.put("favoriteCount", 25);
             recipe.put("rating", 4.5);
+
+            try {
+                Long favoriteUserId = getCurrentUserId();
+                DietFavorites existing = dietFavoritesMapper.selectDietFavoritesByUserIdAndTypeAndTargetId(favoriteUserId, "recipe", recipeId);
+                recipe.put("isFavorited", existing != null && existing.getFavoriteId() != null);
+            } catch (Exception e) {
+                recipe.put("isFavorited", false);
+            }
             
             // 详细食材列表
             List<Map<String, Object>> ingredients = new ArrayList<>();
@@ -338,6 +355,21 @@ public class DietRecipeController extends BaseController
     public AjaxResult favoriteRecipe(@PathVariable("recipeId") Long recipeId)
     {
         try {
+            Long userId = SecurityUtils.getUserId();
+            DietFavorites existing = dietFavoritesMapper.selectDietFavoritesByUserIdAndTypeAndTargetId(userId, "recipe", recipeId);
+            if (existing == null) {
+                DietFavorites toInsert = new DietFavorites();
+                toInsert.setUserId(userId);
+                toInsert.setFavoriteType("recipe");
+                toInsert.setTargetId(recipeId);
+                toInsert.setTargetName("食谱:" + recipeId);
+                toInsert.setTargetDescription("");
+                toInsert.setTargetImage("");
+                toInsert.setCreateTime(new Date());
+                toInsert.setCreateBy(String.valueOf(userId));
+                dietFavoritesMapper.insertDietFavorites(toInsert);
+            }
+
             Map<String, Object> result = new HashMap<>();
             result.put("recipeId", recipeId);
             result.put("isFavorited", true);
@@ -358,6 +390,9 @@ public class DietRecipeController extends BaseController
     public AjaxResult unfavoriteRecipe(@PathVariable("recipeId") Long recipeId)
     {
         try {
+            Long userId = SecurityUtils.getUserId();
+            dietFavoritesMapper.deleteDietFavoritesByUserIdAndTypeAndTargetId(userId, "recipe", recipeId);
+
             Map<String, Object> result = new HashMap<>();
             result.put("recipeId", recipeId);
             result.put("isFavorited", false);
@@ -379,6 +414,7 @@ public class DietRecipeController extends BaseController
                                   @RequestParam(required = false) String tags)
     {
         try {
+            Long favoriteUserId = getCurrentUserId();
             List<Map<String, Object>> recipes = new ArrayList<>();
             
             // 模拟搜索结果
@@ -393,6 +429,8 @@ public class DietRecipeController extends BaseController
                 recipe.put("favoriteCount", 25);
                 recipes.add(recipe);
             }
+
+            decorateRecipeFavorited(recipes, favoriteUserId);
             
             Map<String, Object> result = new HashMap<>();
             result.put("recipes", recipes);
@@ -413,6 +451,7 @@ public class DietRecipeController extends BaseController
     public AjaxResult getPopularRecipes(@RequestParam(defaultValue = "10") int limit)
     {
         try {
+            Long favoriteUserId = getCurrentUserId();
             List<Map<String, Object>> recipes = new ArrayList<>();
             
             Map<String, Object> recipe1 = new HashMap<>();
@@ -438,11 +477,42 @@ public class DietRecipeController extends BaseController
             recipe2.put("difficulty", "简单");
             recipe2.put("cookingTime", "10分钟");
             recipes.add(recipe2);
+
+            decorateRecipeFavorited(recipes, favoriteUserId);
             
             return success(recipes);
         } catch (Exception e) {
             logger.error("获取热门食谱失败", e);
             return error("获取热门食谱失败：" + e.getMessage());
+        }
+    }
+
+    private void decorateRecipeFavorited(List<Map<String, Object>> recipes, Long userId) {
+        if (recipes == null || recipes.isEmpty() || userId == null) {
+            return;
+        }
+        for (Map<String, Object> r : recipes) {
+            if (r == null) {
+                continue;
+            }
+            Object recipeIdObj = r.get("recipeId");
+            if (recipeIdObj == null) {
+                recipeIdObj = r.get("id");
+            }
+            Long recipeId;
+            try {
+                recipeId = recipeIdObj instanceof Number ? ((Number) recipeIdObj).longValue() : Long.parseLong(String.valueOf(recipeIdObj));
+            } catch (Exception e) {
+                r.put("isFavorited", false);
+                continue;
+            }
+
+            try {
+                DietFavorites existing = dietFavoritesMapper.selectDietFavoritesByUserIdAndTypeAndTargetId(userId, "recipe", recipeId);
+                r.put("isFavorited", existing != null && existing.getFavoriteId() != null);
+            } catch (Exception e) {
+                r.put("isFavorited", false);
+            }
         }
     }
 

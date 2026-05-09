@@ -9,8 +9,8 @@
           @keyup.enter.native="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="食物类别" prop="category">
-        <el-select v-model="queryParams.category" placeholder="请选择食物类别" clearable>
+      <el-form-item label="所属类别" prop="categoryId">
+        <el-select v-model="queryParams.categoryId" placeholder="按系统字典类别筛选" clearable>
           <el-option
             v-for="dict in dict.type.food_category"
             :key="dict.value"
@@ -74,9 +74,11 @@
     <el-table v-loading="loading" :data="foodList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="食物名称" align="center" prop="foodName" />
-      <el-table-column label="食物类别" align="center" prop="category">
+      <el-table-column label="所属类别" align="center" prop="categoryId">
         <template slot-scope="scope">
-          <dict-tag :options="dict.type.food_category" :value="scope.row.category"/>
+          <!-- 优先展示底层联表获取的真实分类名，降级展示字典匹配 -->
+          <el-tag type="info" v-if="scope.row.categoryName">{{ scope.row.categoryName }}</el-tag>
+          <dict-tag v-else :options="dict.type.food_category" :value="scope.row.categoryId || scope.row.category"/>
         </template>
       </el-table-column>
       <el-table-column label="热量(kcal/100g)" align="center" prop="caloriesPer100g" />
@@ -134,12 +136,12 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="食物类别" prop="category">
-              <el-select v-model="form.category" placeholder="请选择食物类别">
+            <el-form-item label="所属类别" prop="categoryId">
+              <el-select v-model="form.categoryId" placeholder="选择预设食物类别">
                 <el-option
                   v-for="dict in dict.type.food_category"
                   :key="dict.value"
-                  :label="dict.label"
+                  :label="`${dict.label} (代码:${dict.value})`"
                   :value="dict.value"
                 ></el-option>
               </el-select>
@@ -203,8 +205,9 @@
       <div v-if="currentFood" class="food-detail">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="食物名称">{{ currentFood.foodName }}</el-descriptions-item>
-          <el-descriptions-item label="食物类别">
-            <dict-tag :options="dict.type.food_category" :value="currentFood.category"/>
+          <el-descriptions-item label="所属类别">
+            <el-tag type="info" v-if="currentFood.categoryName" size="small">{{ currentFood.categoryName }}</el-tag>
+            <dict-tag v-else :options="dict.type.food_category" :value="currentFood.categoryId || currentFood.category"/>
           </el-descriptions-item>
           <el-descriptions-item label="热量">{{ currentFood.caloriesPer100g }} kcal/100g</el-descriptions-item>
           <el-descriptions-item label="蛋白质">{{ currentFood.proteinPer100g }} g/100g</el-descriptions-item>
@@ -255,7 +258,7 @@ export default {
         pageNum: 1,
         pageSize: 10,
         foodName: null,
-        category: null,
+        categoryId: null,
       },
       // 表单参数
       form: {},
@@ -264,8 +267,8 @@ export default {
         foodName: [
           { required: true, message: "食物名称不能为空", trigger: "blur" }
         ],
-        category: [
-          { required: true, message: "食物类别不能为空", trigger: "change" }
+        categoryId: [
+          { required: true, message: "所属类别不能为空", trigger: "change" }
         ],
         caloriesPer100g: [
           { required: true, message: "热量不能为空", trigger: "blur" }
@@ -299,7 +302,7 @@ export default {
       this.form = {
         foodId: null,
         foodName: null,
-        category: null,
+        categoryId: null,
         caloriesPer100g: null,
         proteinPer100g: null,
         fatPer100g: null,

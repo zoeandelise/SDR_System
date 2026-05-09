@@ -1,12 +1,11 @@
-// 全新设计的首页 - 简洁现代
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { dashboardApi } from '../services/api';
-import api from '../services/api';
+import api, { dashboardApi } from '../services/api';
 import FoodDetailModal from '../components/FoodDetailModal';
-import Navbar from '../components/Navbar';
-import { Card, CardContent } from '../components/ui/Card';
+import { useToast } from '../components/ui/Toast';
+import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { ChevronRight, Flame, Wheat, Droplets, Lightbulb, ArrowRight } from 'lucide-react';
 
 interface DashboardData {
   todayNutrition: {
@@ -33,60 +32,52 @@ interface DashboardData {
   };
 }
 
+const healthTips = [
+  '保持充足的水分摄入（约2000ml/天）有助于提升新陈代谢，加速脂肪燃烧。',
+  '每餐先吃蔬菜再吃主食，可以有效降低餐后血糖波动。',
+  '蛋白质摄入建议分散到每餐，每餐20-30g更有利于肌肉合成。',
+  '晚餐建议在睡前3小时完成，有助于消化和睡眠质量。',
+  '每周至少安排1天"欺骗餐"，适度放松有助于长期坚持健康饮食。',
+  '深色蔬菜的营养密度通常高于浅色蔬菜，建议每餐至少一种深色蔬菜。',
+];
+
 const NewHomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [pendingPlans, setPendingPlans] = useState<any[]>([]);
+  const [executingPlan, setExecutingPlan] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showQuickStart, setShowQuickStart] = useState(false);
-  const [generatingPlan, setGeneratingPlan] = useState(false);
-  const [showPlanDialog, setShowPlanDialog] = useState(false);
-  const [dailyPlan, setDailyPlan] = useState<any>(null);
   const [selectedFood, setSelectedFood] = useState<string | null>(null);
+  const [tipIndex, setTipIndex] = useState(0);
 
   useEffect(() => {
     loadDashboardData();
-    checkIfNeedQuickStart();
+    setTipIndex(Math.floor(Math.random() * healthTips.length));
   }, []);
-
-  // 检查是否需要显示快速开始
-  const checkIfNeedQuickStart = () => {
-    setTimeout(() => {
-      if (data?.todayRecords?.length === 0) {
-        setShowQuickStart(true);
-      }
-    }, 2000);
-  };
-
-  // 快速生成今日方案
-  const handleQuickGeneratePlan = async () => {
-    try {
-      setGeneratingPlan(true);
-
-      const response: any = await api.post('/api/user/diet/daily-plan', {});
-
-      if (response.code === 200) {
-        setShowQuickStart(false);
-        setDailyPlan(response.data);
-        setShowPlanDialog(true);
-      }
-    } catch (error: any) {
-      console.error('生成方案失败:', error);
-    } finally {
-      setGeneratingPlan(false);
-    }
-  };
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       setError('');
-      const response: any = await dashboardApi.getDashboardData();
+      
+      const [dashRes, planRes]: any = await Promise.all([
+        dashboardApi.getDashboardData(),
+        api.get('/api/user/diet/my-recommendations', { params: { days: 1 } }).catch(() => ({ code: 500, data: [] }))
+      ]);
 
-      if (response.code === 200 && response.data) {
-        setData(response.data);
+      if (dashRes.code === 200 && dashRes.data) {
+        setData(dashRes.data);
       } else {
-        throw new Error(response.msg || '加载失败');
+        throw new Error(dashRes.msg || '加载失败');
+      }
+
+      if (planRes.code === 200 && planRes.data) {
+        const unapplied = planRes.data.filter((r: any) => r.isAccepted === '2');
+        setPendingPlans(unapplied);
+      } else {
+        setPendingPlans([]);
       }
     } catch (err: any) {
       console.error('加载仪表板数据失败:', err);
@@ -99,388 +90,297 @@ const NewHomePage: React.FC = () => {
   const mealTypeNames: { [key: string]: string } = {
     '0': '早餐', '1': '午餐', '2': '晚餐', '3': '加餐'
   };
-
   const mealTypeEmojis: { [key: string]: string } = {
     '0': '🍳', '1': '🍱', '2': '🍲', '3': '🍎'
   };
 
+  const handleExecutePlan = async (recommendationId: number) => {
+    try {
+      setExecutingPlan(recommendationId);
+      const response: any = await api.post('/api/user/diet/plan/execute', { recommendationId });
+      if (response.code === 200) {
+        showToast('success', '打卡成功！热量已计入今日摄入。');
+        await loadDashboardData();
+      } else {
+        showToast('error', response.msg || '打卡失败');
+      }
+    } catch (err: any) {
+      showToast('error', err.response?.data?.msg || err.message || '打卡失败');
+    } finally {
+      setExecutingPlan(null);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-          <p className="mt-4 text-gray-600 animate-pulse">正在加载您的健康数据...</p>
+          <div className="w-10 h-10 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto" />
+          <p className="mt-4 text-sm text-gray-600">加载中...</p>
         </div>
       </div>
     );
   }
 
+  const nutrition = data?.todayNutrition;
+  const profile = data?.userProfile;
+  const caloriePercent = Math.min(((nutrition?.totalCalories || 0) / (profile?.dailyCalorieGoal || 2000)) * 100, 100);
+  const proteinPercent = Math.min(((nutrition?.totalProtein || 0) / (profile?.dailyProteinGoal || 80)) * 100, 100);
+  const carbPercent = Math.min(((nutrition?.totalCarbohydrate || 0) / (profile?.dailyCarbGoal || 250)) * 100, 100);
+  const fatPercent = Math.min(((nutrition?.totalFat || 0) / (profile?.dailyFatGoal || 55)) * 100, 100);
+
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      <Navbar onMenuClick={() => { }} />
+    <div className="space-y-6 animate-fadeIn">
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
+          <span className="text-sm text-red-800">{error}</span>
+          <button onClick={() => setError('')} className="text-red-500 hover:text-red-700 font-bold">×</button>
+        </div>
+      )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
-        {/* 错误提示 */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
-            <div className="flex items-center">
-              <span className="text-red-600 mr-2 text-xl">⚠️</span>
-              <span className="text-red-700 font-medium">{error}</span>
-            </div>
-            <button
-              onClick={() => setError('')}
-              className="text-red-600 hover:text-red-800 p-1 hover:bg-red-100 rounded-lg transition-colors"
-            >
-              ×
-            </button>
-          </div>
-        )}
-
-        {/* 欢迎 Banner */}
-        <div className="mb-8 relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-600 to-teal-600 shadow-xl text-white">
-          <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-48 h-48 bg-yellow-400/20 rounded-full blur-3xl"></div>
-
-          <div className="relative p-8 md:p-10 flex flex-col md:flex-row items-center justify-between">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="md:col-span-2 relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 shadow-lg border border-emerald-100">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-200/40 rounded-full blur-3xl -mr-16 -mt-16" />
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-teal-200/30 rounded-full blur-2xl -ml-8 -mb-8" />
+        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-cyan-100/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+        <div className="relative p-6">
+          <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-2 tracking-tight">
-                欢迎回来，{data?.userProfile?.userName || '用户'} 👋
-              </h2>
-              <p className="text-primary-100 text-lg mb-6 max-w-lg">
-                今天是您坚持健康饮食的第 <span className="font-bold text-white text-2xl mx-1">{data?.userProfile?.continuousDays || 0}</span> 天，继续保持！
+              <p className="text-emerald-700 text-base font-medium">
+                {new Date().getHours() < 12 ? '早上好' : new Date().getHours() < 18 ? '下午好' : '晚上好'}，
               </p>
-
-              <div className="flex flex-wrap gap-4">
-                <div className="bg-white/20 backdrop-blur-md rounded-xl px-5 py-3 border border-white/10">
-                  <div className="text-primary-100 text-xs uppercase tracking-wider font-semibold mb-1">健康评分</div>
-                  <div className="text-3xl font-bold">{data?.userProfile?.healthScore || 0}</div>
-                </div>
-                <div className="bg-white/20 backdrop-blur-md rounded-xl px-5 py-3 border border-white/10">
-                  <div className="text-primary-100 text-xs uppercase tracking-wider font-semibold mb-1">累计减重</div>
-                  <div className="text-3xl font-bold">{data?.userProfile?.totalWeightLoss || 0} <span className="text-sm font-normal text-primary-100">kg</span></div>
-                </div>
+              <h2 className="text-3xl font-bold mt-1 text-gray-900">{profile?.userName || '用户'}</h2>
+            </div>
+            <div className="flex gap-3">
+              <div className="bg-white/80 backdrop-blur rounded-xl px-5 py-3 text-center shadow-sm border border-emerald-100">
+                <div className="text-xs text-emerald-600 font-semibold">连续</div>
+                <div className="text-2xl font-bold text-gray-900">{profile?.continuousDays || 0}<span className="text-sm font-normal ml-1 text-gray-600">天</span></div>
+              </div>
+              <div className="bg-white/80 backdrop-blur rounded-xl px-5 py-3 text-center shadow-sm border border-emerald-100">
+                <div className="text-xs text-emerald-600 font-semibold">评分</div>
+                <div className="text-2xl font-bold text-gray-900">{profile?.healthScore || 0}</div>
               </div>
             </div>
+          </div>
 
-            <div className="mt-8 md:mt-0 hidden md:block">
-              <div className="text-9xl filter drop-shadow-2xl animate-float">🥗</div>
+          <div className="mt-6 bg-white/70 backdrop-blur rounded-2xl p-5 border border-emerald-100">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-gray-700 font-semibold">今日热量摄入</span>
+              <span className="text-xs text-gray-500 font-medium">
+                目标 {profile?.dailyCalorieGoal || 2000} kcal
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mb-3">
+              <span className="text-3xl font-black text-emerald-600">
+                {nutrition?.totalCalories || 0}
+              </span>
+              <span className="text-sm text-gray-500">
+                / {profile?.dailyCalorieGoal || 2000} kcal
+              </span>
+              {(nutrition?.totalCalories || 0) > 0 && (
+                <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${caloriePercent >= 100 ? 'bg-red-100 text-red-600' : caloriePercent >= 80 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                  {caloriePercent >= 100 ? '已超标' : `还剩 ${Math.round((profile?.dailyCalorieGoal || 2000) - (nutrition?.totalCalories || 0))} kcal`}
+                </span>
+              )}
+            </div>
+            <div
+              className="w-full h-4 rounded-full overflow-hidden border border-gray-200 shadow-inner"
+              style={{ backgroundColor: '#e5e7eb' }}
+            >
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${Math.min(Math.max(caloriePercent, 0), 100)}%`,
+                  backgroundColor: caloriePercent >= 100 ? '#ef4444' : caloriePercent >= 80 ? '#f59e0b' : '#10b981',
+                  minWidth: caloriePercent > 0 ? 8 : undefined,
+                }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-400 mt-1 font-medium">
+              <span>0</span>
+              <span>{Math.round((profile?.dailyCalorieGoal || 2000) / 2)}</span>
+              <span>{profile?.dailyCalorieGoal || 2000}</span>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* 核心功能区：AI推荐 + 快速开始 */}
-        <div className="mb-10 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* AI 推荐卡片 */}
-          <Card variant="gradient" className="from-indigo-500 to-purple-600 text-white border-0 overflow-hidden relative group cursor-pointer hover:scale-[1.02] transition-transform duration-300" onClick={() => navigate('/smart-recommendation')}>
-            <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="relative z-10 flex items-center justify-between p-2">
-              <div>
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/20 text-xs font-bold mb-3 backdrop-blur-sm border border-white/10">
-                  ✨ 核心功能
+      <div className="space-y-4">
+        <NutritionPill
+          icon={<Flame className="w-5 h-5" />}
+          label="蛋白质"
+          current={nutrition?.totalProtein || 0}
+          target={profile?.dailyProteinGoal || 80}
+          unit="g"
+          percent={proteinPercent}
+          color="#2563eb"
+          bgColor="bg-blue-50"
+          textColor="text-blue-700"
+        />
+        <NutritionPill
+          icon={<Wheat className="w-5 h-5" />}
+          label="碳水"
+          current={nutrition?.totalCarbohydrate || 0}
+          target={profile?.dailyCarbGoal || 250}
+          unit="g"
+          percent={carbPercent}
+          color="#f97316"
+          bgColor="bg-amber-50"
+          textColor="text-amber-700"
+        />
+        <NutritionPill
+          icon={<Droplets className="w-5 h-5" />}
+          label="脂肪"
+          current={nutrition?.totalFat || 0}
+          target={profile?.dailyFatGoal || 55}
+          unit="g"
+          percent={fatPercent}
+          color="#7c3aed"
+          bgColor="bg-purple-50"
+          textColor="text-purple-700"
+        />
+      </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900">今日饮食</h3>
+          <button onClick={() => navigate('/diet-log')} className="text-sm text-emerald-600 font-semibold hover:text-emerald-700 flex items-center gap-1">
+            记录饮食 <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {(data?.todayRecords && data.todayRecords.length > 0) || pendingPlans.length > 0 ? (
+          <div className="space-y-3">
+            {pendingPlans.map((plan, index) => {
+              const foods = plan.recommendedFoods || '';
+              const bk = foods.includes('早餐') ? foods.substring(foods.indexOf('早餐:'), foods.includes('午餐') ? foods.indexOf('午餐') : foods.length).replace('早餐:', '').trim() : '';
+              const lh = foods.includes('午餐') ? foods.substring(foods.indexOf('午餐:'), foods.includes('晚餐') ? foods.indexOf('晚餐') : foods.length).replace('午餐:', '').trim() : '';
+              const dn = foods.includes('晚餐') ? foods.substring(foods.indexOf('晚餐:')).replace('晚餐:', '').trim() : '';
+              return (
+              <Card key={`plan-${index}`} className="border border-gray-200 shadow-sm bg-white" hoverEffect={false}>
+                <div className="flex items-center gap-4 p-4">
+                  <div className="w-12 h-12 rounded-xl bg-black flex items-center justify-center text-2xl flex-shrink-0 shadow-inner">
+                    🧠
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-extrabold text-black text-base">全天智能饮食方案</span>
+                      <span className="text-[10px] px-2 py-0.5 bg-black text-white rounded-md font-bold">
+                        未打卡
+                      </span>
+                    </div>
+                    <div className="text-xs font-medium text-gray-500 space-y-1">
+                      {bk && <div className="truncate"><span className="font-bold text-gray-800">早:</span> {bk}</div>}
+                      {lh && <div className="truncate"><span className="font-bold text-gray-800">午:</span> {lh}</div>}
+                      {dn && <div className="truncate"><span className="font-bold text-gray-800">晚:</span> {dn}</div>}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <Button 
+                      size="sm" 
+                      onClick={() => navigate('/checkin')}
+                      className="bg-black hover:bg-gray-800 text-white shadow-md transition-all rounded-xl font-bold px-4 py-2"
+                    >
+                      去打卡
+                    </Button>
+                  </div>
                 </div>
-                <h3 className="text-2xl font-bold mb-2">AI 智能膳食推荐</h3>
-                <p className="text-indigo-100 mb-6 max-w-sm">基于协同过滤算法，为您量身定制今日三餐，兼顾口味与营养。</p>
-                <div className="flex gap-2">
-                  <Button size="sm" className="bg-white text-indigo-600 hover:bg-indigo-50 shadow-none border-0">
-                    立即体验
-                  </Button>
+              </Card>
+            )})}
+            {data?.todayRecords?.map((record, index) => (
+              <Card key={index} className="border-0 shadow-sm hover:shadow-md transition-shadow" hoverEffect={false}>
+                <div className="flex items-center gap-4 p-4">
+                  <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center text-2xl flex-shrink-0">
+                    {mealTypeEmojis[record.mealType]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-900 text-base">{mealTypeNames[record.mealType]}</span>
+                      <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md font-semibold">已记录</span>
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1 truncate">
+                      {record.notes?.split(/[,，、]/).map((food: string) => {
+                        const clean = food.trim().replace(/^(早餐|午餐|晚餐|加餐)[::：]\s*/, '');
+                        return clean;
+                      }).filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-base font-bold text-gray-900">{record.totalCalories}</div>
+                    <div className="text-sm text-gray-600">kcal</div>
+                  </div>
                 </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="border-0 shadow-sm" hoverEffect={false}>
+            <div className="p-8 text-center">
+              <div className="text-5xl mb-4">
+                {new Date().getHours() < 10 ? '🌅' : new Date().getHours() < 14 ? '☀️' : new Date().getHours() < 18 ? '🌤️' : '🌙'}
               </div>
-              <div className="text-8xl opacity-80 group-hover:scale-110 transition-transform duration-500">🤖</div>
+              <p className="text-base text-gray-600 mb-4">
+                {new Date().getHours() < 10 ? '早餐时间到了，开始记录吧' :
+                 new Date().getHours() < 14 ? '午餐时间，别忘了记录' :
+                 new Date().getHours() < 18 ? '下午茶时间' : '晚餐时间，记录今天的最后一餐'}
+              </p>
+              <Button size="sm" onClick={() => navigate('/diet-log')}>📝 记录饮食</Button>
             </div>
           </Card>
-
-          {/* 快速开始 / 提示卡片 */}
-          {showQuickStart && data?.todayRecords?.length === 0 ? (
-            <Card variant="gradient" className="from-orange-400 to-pink-500 text-white border-0">
-              <div className="flex items-center justify-between h-full">
-                <div>
-                  <h3 className="text-2xl font-bold mb-2">今天吃什么？</h3>
-                  <p className="text-orange-50 mb-4">还没有记录饮食，让 AI 帮您规划或手动记录。</p>
-                  <div className="flex gap-3">
-                    <Button
-                      size="sm"
-                      onClick={(e) => { e.stopPropagation(); handleQuickGeneratePlan(); }}
-                      disabled={generatingPlan}
-                      className="bg-white text-orange-600 hover:bg-orange-50 border-0"
-                    >
-                      {generatingPlan ? '生成中...' : '🎲 一键生成'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => navigate('/diet-log')}
-                      className="text-white hover:bg-white/20"
-                    >
-                      📝 手动记录
-                    </Button>
-                  </div>
-                </div>
-                <div className="text-7xl animate-pulse">🍽️</div>
-              </div>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 h-full">
-              <Card
-                className="bg-blue-50 border-blue-100 hover:border-blue-300 cursor-pointer group"
-                onClick={() => navigate('/diet-log')}
-              >
-                <div className="h-full flex flex-col justify-center items-center text-center p-4">
-                  <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">📝</div>
-                  <h4 className="font-bold text-gray-900">饮食记录</h4>
-                  <p className="text-xs text-gray-500 mt-1">记录今日每一餐</p>
-                </div>
-              </Card>
-              <Card
-                className="bg-amber-50 border-amber-100 hover:border-amber-300 cursor-pointer group"
-                onClick={() => navigate('/food-database')}
-              >
-                <div className="h-full flex flex-col justify-center items-center text-center p-4">
-                  <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">🔍</div>
-                  <h4 className="font-bold text-gray-900">食物库</h4>
-                  <p className="text-xs text-gray-500 mt-1">查询营养成分</p>
-                </div>
-              </Card>
-            </div>
-          )}
-        </div>
-
-        {/* 营养摄入仪表盘 */}
-        <div className="mb-10">
-          <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
-            <span className="w-1.5 h-6 bg-primary-500 rounded-full mr-3"></span>
-            今日营养摄入
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <NutritionCard
-              title="卡路里"
-              icon="🔥"
-              current={data?.todayNutrition?.totalCalories || 0}
-              target={data?.userProfile?.dailyCalorieGoal || 2000}
-              unit="kcal"
-              color="text-orange-500"
-              progressColor="bg-gradient-to-r from-orange-400 to-red-500"
-            />
-            <NutritionCard
-              title="蛋白质"
-              icon="💪"
-              current={data?.todayNutrition?.totalProtein || 0}
-              target={data?.userProfile?.dailyProteinGoal || 80}
-              unit="g"
-              color="text-blue-500"
-              progressColor="bg-gradient-to-r from-blue-400 to-indigo-500"
-            />
-            <NutritionCard
-              title="碳水化合物"
-              icon="🌾"
-              current={data?.todayNutrition?.totalCarbohydrate || 0}
-              target={data?.userProfile?.dailyCarbGoal || 250}
-              unit="g"
-              color="text-yellow-500"
-              progressColor="bg-gradient-to-r from-yellow-400 to-amber-500"
-            />
-            <NutritionCard
-              title="脂肪"
-              icon="🧈"
-              current={data?.todayNutrition?.totalFat || 0}
-              target={data?.userProfile?.dailyFatGoal || 55}
-              unit="g"
-              color="text-purple-500"
-              progressColor="bg-gradient-to-r from-purple-400 to-pink-500"
-            />
-          </div>
-        </div>
-
-        {/* 今日记录列表 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <Card className="h-full">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-gray-900">饮食时间轴</h3>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/diet-history')}>
-                  查看历史 →
-                </Button>
-              </div>
-
-              {data?.todayRecords && data.todayRecords.length > 0 ? (
-                <div className="space-y-4 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-100">
-                  {data.todayRecords.map((record, index) => (
-                    <div key={index} className="relative pl-14 group">
-                      <div className="absolute left-3 top-3 w-6 h-6 bg-white border-4 border-primary-100 rounded-full z-10 group-hover:border-primary-400 transition-colors"></div>
-                      <div className="bg-gray-50 rounded-xl p-4 hover:bg-white hover:shadow-md transition-all border border-gray-100 group-hover:border-primary-100 cursor-pointer" onClick={() => navigate('/diet-log')}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xl">{mealTypeEmojis[record.mealType]}</span>
-                              <span className="font-bold text-gray-900">{mealTypeNames[record.mealType]}</span>
-                              <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full">已记录</span>
-                            </div>
-                            <div className="text-gray-600 font-medium flex flex-wrap gap-1">
-                              {record.notes?.split(/[,，、]/).map((food: string, idx: number) => {
-                                const cleanFood = food.trim().replace(/^(早餐|午餐|晚餐|加餐)[::：]\s*/, '');
-                                if (!cleanFood) return null;
-                                // 估算分量
-                                const name = cleanFood;
-                                let portion = 100;
-                                if (name.includes('饭') || name.includes('面') || name.includes('粥')) portion = 200;
-                                else if (name.includes('汤') || name.includes('水') || name.includes('奶') || name.includes('茶')) portion = 250;
-                                else if (name.includes('菜') || name.includes('瓜') || name.includes('萝卜')) portion = 150;
-                                else if (name.includes('肉') || name.includes('鱼') || name.includes('鸡')) portion = 100;
-                                else if (name.includes('蛋')) portion = 50;
-                                return (
-                                  <span key={idx} className="bg-gray-100 px-2 py-0.5 rounded text-sm">
-                                    {cleanFood}<span className="text-gray-400 ml-1 text-xs">{portion}g</span>
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-lg font-bold text-primary-600">{record.totalCalories}</span>
-                            <span className="text-xs text-gray-400 block">kcal</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8">
-                  {/* 当前时段建议 */}
-                  <div className="text-center mb-6">
-                    <div className="text-5xl mb-3">
-                      {new Date().getHours() < 10 ? '🌅' : new Date().getHours() < 14 ? '☀️' : new Date().getHours() < 18 ? '🌤️' : '🌙'}
-                    </div>
-                    <h4 className="text-lg font-bold text-gray-800 mb-1">
-                      {new Date().getHours() < 10 ? '早餐时间' : new Date().getHours() < 14 ? '午餐时间' : new Date().getHours() < 18 ? '下午茶时间' : '晚餐时间'}
-                    </h4>
-                    <p className="text-gray-500 text-sm">今天还没有记录，来添加第一餐吧！</p>
-                  </div>
-
-                  {/* 操作按钮 */}
-                  <div className="flex gap-3 justify-center">
-                    <Button onClick={() => navigate('/diet-log')}>
-                      📝 手动记录饮食
-                    </Button>
-                    <Button variant="outline" onClick={() => navigate('/smart-recommendation')}>
-                      🤖 获取 AI 推荐
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          <div className="lg:col-span-1 space-y-4">
-            {/* 健康贴士卡片 */}
-            <Card className="bg-gradient-to-b from-blue-50 to-white border-blue-100">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">健康贴士</h3>
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-blue-100 mb-4">
-                <div className="text-blue-500 font-bold mb-1 text-sm">💡 每日一贴</div>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  保持充足的水分摄入（约2000ml/天）有助于提升新陈代谢，加速脂肪燃烧。
-                </p>
-              </div>
-
-              {/* 更多功能入口 */}
-              <div className="space-y-2">
-                <Button variant="ghost" className="w-full justify-start text-gray-600 hover:text-primary-600 hover:bg-white" onClick={() => navigate('/health-goal')}>
-                  <span className="mr-2">🎯</span> 调整健康目标
-                </Button>
-                <Button variant="ghost" className="w-full justify-start text-gray-600 hover:text-primary-600 hover:bg-white" onClick={() => navigate('/settings')}>
-                  <span className="mr-2">⚙️</span> 个人设置
-                </Button>
-              </div>
-            </Card>
-          </div>
-        </div>
-
-        {/* 方案弹窗 */}
-        {showPlanDialog && dailyPlan && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-            <div className="bg-white rounded-3xl max-w-3xl w-full p-8 max-h-[90vh] overflow-y-auto shadow-2xl scale-100 animate-slideUp">
-              <div className="text-center mb-8">
-                <div className="inline-block p-3 bg-green-100 rounded-full mb-4">
-                  <span className="text-4xl block">🎉</span>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">今日饮食方案已生成</h3>
-                <p className="text-gray-500">AI 已为您规划好个性化营养菜单</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                {['breakfast', 'lunch', 'dinner'].map((meal, idx) => (
-                  <div key={meal} className={`rounded-xl p-5 border ${meal === 'breakfast' ? 'bg-orange-50 border-orange-100' :
-                    meal === 'lunch' ? 'bg-green-50 border-green-100' :
-                      'bg-blue-50 border-blue-100'
-                    }`}>
-                    <div className="text-center mb-3">
-                      <span className="text-3xl block mb-2">{['🍳', '🍱', '🍲'][idx]}</span>
-                      <h4 className="font-bold text-gray-800">{['早餐', '午餐', '晚餐'][idx]}</h4>
-                    </div>
-                    <div className="space-y-2">
-                      {dailyPlan[meal]?.map((food: any, i: number) => (
-                        <div key={i} className="text-center py-2 bg-white/80 rounded-lg text-sm font-medium text-gray-700 shadow-sm">
-                          {food.food_name}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-4">
-                <Button variant="outline" className="flex-1" onClick={() => setShowPlanDialog(false)}>
-                  稍后再看
-                </Button>
-                <Button className="flex-1" onClick={() => { setShowPlanDialog(false); navigate('/smart-recommendation'); }}>
-                  查看详情并应用
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 食物详情弹窗 */}
-        {selectedFood && (
-          <FoodDetailModal
-            foodName={selectedFood}
-            onClose={() => setSelectedFood(null)}
-          />
         )}
       </div>
-    </div >
+
+      <Card className="border border-indigo-200 bg-indigo-50" hoverEffect={false}>
+        <div className="p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Lightbulb className="w-5 h-5 text-indigo-700" />
+            <span className="text-base font-bold text-indigo-800">每日健康贴士</span>
+          </div>
+          <p className="text-base text-gray-800 leading-relaxed">{healthTips[tipIndex]}</p>
+          <button
+            onClick={() => setTipIndex((tipIndex + 1) % healthTips.length)}
+            className="mt-4 text-sm text-indigo-700 font-semibold hover:text-indigo-900 transition-colors flex items-center gap-1"
+          >
+            换一条 <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </Card>
+
+      {selectedFood && (
+        <FoodDetailModal foodName={selectedFood} onClose={() => setSelectedFood(null)} />
+      )}
+    </div>
   );
 };
 
-// 辅助组件：营养卡片
-const NutritionCard: React.FC<{
-  title: string; icon: string; current: number; target: number; unit: string; color: string; progressColor: string;
-}> = ({ title, icon, current, target, unit, color, progressColor }) => {
-  const percentage = Math.min((current / target) * 100, 100);
-
-  return (
-    <Card className="border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <p className="text-gray-500 text-sm font-medium mb-1">{title}</p>
-          <h4 className="text-2xl font-bold text-gray-900">
-            {current} <span className="text-sm text-gray-400 font-normal">/ {target}{unit}</span>
-          </h4>
-        </div>
-        <span className="text-2xl bg-gray-50 p-2 rounded-lg">{icon}</span>
-      </div>
-      <div className="relative h-2.5 bg-gray-100 rounded-full overflow-hidden">
-        <div
-          className={`absolute top-0 left-0 h-full rounded-full ${progressColor} transition-all duration-1000 ease-out`}
-          style={{ width: `${percentage}%` }}
-        ></div>
-      </div>
-      <div className="mt-2 text-xs text-right text-gray-500">
-        已摄入 <span className={`font-bold ${color}`}>{Math.round(percentage)}%</span>
-      </div>
-    </Card>
-  );
-};
+const NutritionPill: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  current: number;
+  target: number;
+  unit: string;
+  percent: number;
+  color: string;
+  bgColor: string;
+  textColor: string;
+}> = ({ icon, label, current, target, unit, percent, color, bgColor, textColor }) => (
+  <div className={`${bgColor} rounded-2xl p-4`}>
+    <div className="flex items-center gap-2 mb-2">
+      <div className={`${textColor} p-1.5 rounded-lg bg-white/60 shadow-sm flex items-center justify-center`}>{icon}</div>
+      <span className={`text-sm font-bold ${textColor}`}>{label}</span>
+    </div>
+    <div className="flex items-baseline gap-1">
+      <span className="text-xl font-bold text-gray-900">{Math.round(current)}</span>
+      <span className="text-sm text-gray-600">/ {target}{unit}</span>
+    </div>
+    <div className="w-full h-2 bg-gray-300 rounded-full mt-3 overflow-hidden shadow-inner">
+      <div
+        className="h-full rounded-full transition-all duration-700 shadow-sm"
+        style={{ width: `${percent}%`, backgroundColor: color }}
+      />
+    </div>
+  </div>
+);
 
 export default NewHomePage;
-

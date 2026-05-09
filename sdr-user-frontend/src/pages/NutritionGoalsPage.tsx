@@ -6,9 +6,9 @@ import { Button } from '../components/ui/Button';
 const NutritionGoalsPage: React.FC = () => {
   const [goals, setGoals] = useState({
     calories: 2000,
-    protein: 80,
+    protein: 100,
     carbs: 250,
-    fat: 55,
+    fat: 67,
     fiber: 25,
     water: 2.5,
     weight: 70,
@@ -97,11 +97,10 @@ const NutritionGoalsPage: React.FC = () => {
                     <button
                       key={type.id}
                       onClick={() => setGoalType(type.id)}
-                      className={`w-full p-3 rounded-lg border-2 transition-all ${
-                        goalType === type.id
+                      className={`w-full p-3 rounded-lg border-2 transition-all ${goalType === type.id
                           ? 'border-primary-500 bg-primary-50'
                           : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className={`font-medium ${type.color}`}>{type.name}</span>
@@ -167,9 +166,9 @@ const NutritionGoalsPage: React.FC = () => {
                   <span className="text-gray-600">推荐卡路里:</span>
                   <span className="font-medium">{getRecommendedCalories()} 卡</span>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={resetToRecommended}
                   className="w-full"
                 >
@@ -207,7 +206,7 @@ const NutritionGoalsPage: React.FC = () => {
                     <span className="absolute right-3 top-3 text-gray-500">卡</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
+                    <div
                       className="bg-red-500 h-2 rounded-full"
                       style={{ width: `${Math.min((1847 / goals.calories) * 100, 100)}%` }}
                     ></div>
@@ -230,7 +229,7 @@ const NutritionGoalsPage: React.FC = () => {
                     <span className="absolute right-3 top-3 text-gray-500">g</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
+                    <div
                       className="bg-blue-500 h-2 rounded-full"
                       style={{ width: `${Math.min((67 / goals.protein) * 100, 100)}%` }}
                     ></div>
@@ -253,7 +252,7 @@ const NutritionGoalsPage: React.FC = () => {
                     <span className="absolute right-3 top-3 text-gray-500">g</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
+                    <div
                       className="bg-orange-500 h-2 rounded-full"
                       style={{ width: `${Math.min((231 / goals.carbs) * 100, 100)}%` }}
                     ></div>
@@ -276,7 +275,7 @@ const NutritionGoalsPage: React.FC = () => {
                     <span className="absolute right-3 top-3 text-gray-500">g</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
+                    <div
                       className="bg-purple-500 h-2 rounded-full"
                       style={{ width: `${Math.min((45 / goals.fat) * 100, 100)}%` }}
                     ></div>
@@ -299,7 +298,7 @@ const NutritionGoalsPage: React.FC = () => {
                     <span className="absolute right-3 top-3 text-gray-500">g</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
+                    <div
                       className="bg-green-500 h-2 rounded-full"
                       style={{ width: `${Math.min((18 / goals.fiber) * 100, 100)}%` }}
                     ></div>
@@ -323,7 +322,7 @@ const NutritionGoalsPage: React.FC = () => {
                     <span className="absolute right-3 top-3 text-gray-500">L</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
+                    <div
                       className="bg-cyan-500 h-2 rounded-full"
                       style={{ width: `${Math.min((1.8 / goals.water) * 100, 100)}%` }}
                     ></div>
@@ -374,17 +373,17 @@ const NutritionGoalsPage: React.FC = () => {
               <div className="text-sm text-purple-700">脂肪/天</div>
             </div>
           </div>
-          
+
           <div className="mt-4 p-4 bg-gray-50 rounded-lg">
             <h4 className="font-medium text-gray-900 mb-2">预计效果</h4>
             <p className="text-sm text-gray-600">
-              根据您的目标设置，预计每周体重变化: 
+              根据您的目标设置，预计每周体重变化:
               <span className="font-medium ml-1">
                 {goalType === 'lose' ? '-0.5kg' : goalType === 'gain' ? '+0.3kg' : '维持'}
               </span>
             </p>
             <p className="text-sm text-gray-600 mt-1">
-              达到目标体重 {goals.targetWeight}kg 预计需要: 
+              达到目标体重 {goals.targetWeight}kg 预计需要:
               <span className="font-medium ml-1">
                 {Math.abs(goals.targetWeight - goals.weight) / (goalType === 'lose' ? 0.5 : goalType === 'gain' ? 0.3 : 1)} 周
               </span>

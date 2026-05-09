@@ -134,21 +134,6 @@ export const dynamicRoutes = [
       }
     ]
   },
-
-  {
-    path: '/diet/ml',
-    component: Layout,
-    hidden: true,
-    roles: ['admin'],
-    children: [
-      {
-        path: 'management',
-        component: () => import('@/views/diet/ml/management'),
-        name: 'MLManagement',
-        meta: { title: 'ML推荐管理', activeMenu: '/diet/dashboard' }
-      }
-    ]
-  },
   {
     path: '/monitor/job-log',
     component: Layout,

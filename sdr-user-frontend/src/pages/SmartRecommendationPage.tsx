@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import Navbar from '../components/Navbar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../components/ui/Toast';
@@ -35,6 +34,7 @@ const SmartRecommendationPage: React.FC = () => {
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
     const [replacingFood, setReplacingFood] = useState<string | null>(null); // 正在替换的食物标识
+    const [selectedFood, setSelectedFood] = useState<RecommendedFood | null>(null);
     const { showToast } = useToast();
 
     // 生成今日方案
@@ -73,8 +73,8 @@ const SmartRecommendationPage: React.FC = () => {
             const response: any = await api.post('/api/user/diet/save-daily-plan', dailyPlan);
 
             if (response.code === 200) {
-                showToast('success', '方案已保存到饮食记录！');
-                navigate('/diet-history?tab=recommendations');
+                showToast('success', '已添加至今日方案！请在首页点击【打卡】记录热量。');
+                navigate('/');
             } else {
                 throw new Error(response.msg || '保存失败');
             }
@@ -145,16 +145,13 @@ const SmartRecommendationPage: React.FC = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-gray-50/50">
-            <Navbar onMenuClick={() => { }} />
-
-            <div className="max-w-5xl mx-auto px-4 py-8 animate-fadeIn">
+        <div className="animate-fadeIn">
                 {/* 顶部介绍区 */}
                 <div className="text-center mb-10">
                     <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600 mb-3">
                         AI 智能膳食推荐
                     </h1>
-                    <p className="text-gray-500 max-w-2xl mx-auto">
+                    <p className="text-gray-600 font-medium max-w-2xl mx-auto text-lg">
                         利用协同过滤算法，分析您的历史偏好与健康目标，为您量身定制今日的三餐计划。
                     </p>
                 </div>
@@ -168,10 +165,10 @@ const SmartRecommendationPage: React.FC = () => {
                                 🧠
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold mb-2">推荐引擎核心</h2>
+                                <h2 className="text-xl font-bold mb-2 !text-white">推荐引擎核心</h2>
                                 <div className="flex flex-wrap gap-2">
                                     {['协同过滤', '营养均衡', '口味偏好', '热量控制'].map((tag) => (
-                                        <span key={tag} className="px-2 py-1 bg-white/10 rounded text-xs border border-white/10">
+                                        <span key={tag} className="px-3 py-1 bg-white/40 hover:bg-white/50 transition-colors rounded-lg text-sm font-bold text-white border border-white/40">
                                             {tag}
                                         </span>
                                     ))}
@@ -213,7 +210,7 @@ const SmartRecommendationPage: React.FC = () => {
                             </div>
                         </div>
                         <h3 className="text-xl font-bold text-gray-900 mb-2">正在为您规划食谱...</h3>
-                        <p className="text-gray-500 text-sm">AI 正在计算最佳营养组合</p>
+                        <p className="text-gray-600 font-bold text-sm">AI 正在计算最佳营养组合</p>
                     </div>
                 )}
 
@@ -260,6 +257,7 @@ const SmartRecommendationPage: React.FC = () => {
                                 foods={dailyPlan.breakfast}
                                 type="breakfast"
                                 onReplace={(idx: number) => replaceFood('breakfast', idx)}
+                                onFoodClick={(food: RecommendedFood) => setSelectedFood(food)}
                                 replacingFood={replacingFood}
                             />
                             <MealCard
@@ -268,6 +266,7 @@ const SmartRecommendationPage: React.FC = () => {
                                 foods={dailyPlan.lunch}
                                 type="lunch"
                                 onReplace={(idx: number) => replaceFood('lunch', idx)}
+                                onFoodClick={(food: RecommendedFood) => setSelectedFood(food)}
                                 replacingFood={replacingFood}
                             />
                             <MealCard
@@ -276,8 +275,14 @@ const SmartRecommendationPage: React.FC = () => {
                                 foods={dailyPlan.dinner}
                                 type="dinner"
                                 onReplace={(idx: number) => replaceFood('dinner', idx)}
+                                onFoodClick={(food: RecommendedFood) => setSelectedFood(food)}
                                 replacingFood={replacingFood}
                             />
+                        </div>
+
+                        {/* 提示说明 */}
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-3 text-sm text-emerald-800">
+                            <span className="font-bold">提示：</span>添加到今日方案后不会直接计入热量，请记得在<span className="font-bold text-emerald-600">「首页 - 今日饮食」</span>中点击【打卡】完成记录。
                         </div>
 
                         {/* 底部操作区 */}
@@ -295,7 +300,7 @@ const SmartRecommendationPage: React.FC = () => {
                                     disabled={saving}
                                     className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg hover:shadow-purple-500/30"
                                 >
-                                    {saving ? '正在保存...' : '❤️ 采纳此方案'}
+                                    {saving ? '正在添加...' : '✨ 添加至今日方案'}
                                 </Button>
                             </div>
                         </div>
@@ -303,8 +308,127 @@ const SmartRecommendationPage: React.FC = () => {
                         <div className="h-20 md:hidden"></div>
                     </div>
                 )}
+
+                {/* 食物详情浮窗 */}
+                {selectedFood && (() => {
+                    const sf = selectedFood as any;
+                    const portion = sf.recommended_portion || (() => {
+                        const name = sf.food_name || '';
+                        if (name.includes('饭') || name.includes('面') || name.includes('粥')) return 200;
+                        if (name.includes('汤') || name.includes('水') || name.includes('奶') || name.includes('豆浆')) return 250;
+                        if (name.includes('菜') || name.includes('瓜') || name.includes('花')) return 150;
+                        if (name.includes('肉') || name.includes('鱼') || name.includes('虾') || name.includes('鸡')) return 100;
+                        if (name.includes('蛋')) return 50;
+                        return 100;
+                    })();
+                    const cal100 = sf.calories_per_100g || sf.calories || 0;
+                    const pro100 = sf.protein_per_100g || sf.protein || 0;
+                    const carb100 = sf.carb_per_100g || sf.carbohydrate || 0;
+                    const fat100 = sf.fat_per_100g || sf.fat || 0;
+                    const actualCal = Math.round(cal100 * portion / 100);
+                    const actualPro = Math.round(pro100 * portion / 100 * 10) / 10;
+                    const actualCarb = Math.round(carb100 * portion / 100 * 10) / 10;
+                    const actualFat = Math.round(fat100 * portion / 100 * 10) / 10;
+                    const totalMacro = actualPro + actualCarb + actualFat;
+                    const proPct = totalMacro > 0 ? Math.round(actualPro / totalMacro * 100) : 0;
+                    const carbPct = totalMacro > 0 ? Math.round(actualCarb / totalMacro * 100) : 0;
+                    const fatPct = totalMacro > 0 ? 100 - proPct - carbPct : 0;
+                    const score = sf.score;
+
+                    return (
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fadeIn" onClick={() => setSelectedFood(null)}>
+                            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl animate-scaleIn relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                                <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-5 text-white">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h3 className="text-xl font-bold">{sf.food_name}</h3>
+                                            {sf.reason && (
+                                                <div className="text-sm mt-1.5 text-white/85">💡 {sf.reason}</div>
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={() => setSelectedFood(null)}
+                                            className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="p-5 space-y-4">
+                                    {/* 分量 + 推荐分数 */}
+                                    <div className="flex gap-3">
+                                        <div className="flex-1 bg-amber-50 rounded-xl p-3 text-center border border-amber-100">
+                                            <div className="text-xs text-amber-600 font-bold mb-1">推荐分量</div>
+                                            <div className="text-xl font-bold text-gray-900">{portion}<span className="text-xs font-normal">g</span></div>
+                                        </div>
+                                        {score != null && (
+                                            <div className="flex-1 bg-purple-50 rounded-xl p-3 text-center border border-purple-100">
+                                                <div className="text-xs text-purple-600 font-bold mb-1">推荐指数</div>
+                                                <div className="text-xl font-bold text-gray-900">{Math.round(score * 100)}<span className="text-xs font-normal">分</span></div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 每份实际营养 */}
+                                    <div className="bg-orange-50 rounded-xl p-4 text-center border border-orange-100">
+                                        <div className="text-sm text-orange-600 font-semibold mb-1">每份热量</div>
+                                        <div className="text-3xl font-black text-gray-900">
+                                            {actualCal}
+                                            <span className="text-base font-normal text-gray-500 ml-1">kcal</span>
+                                        </div>
+                                        <div className="text-xs text-gray-500 mt-1">约 {portion}g 份量</div>
+                                    </div>
+
+                                    {/* 每份三大营养素 */}
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
+                                            <div className="text-xs text-blue-600 font-bold mb-1">蛋白质</div>
+                                            <div className="text-lg font-bold text-gray-900">{actualPro}<span className="text-xs font-normal">g</span></div>
+                                        </div>
+                                        <div className="bg-yellow-50 rounded-xl p-3 text-center border border-yellow-100">
+                                            <div className="text-xs text-yellow-600 font-bold mb-1">碳水</div>
+                                            <div className="text-lg font-bold text-gray-900">{actualCarb}<span className="text-xs font-normal">g</span></div>
+                                        </div>
+                                        <div className="bg-purple-50 rounded-xl p-3 text-center border border-purple-100">
+                                            <div className="text-xs text-purple-600 font-bold mb-1">脂肪</div>
+                                            <div className="text-lg font-bold text-gray-900">{actualFat}<span className="text-xs font-normal">g</span></div>
+                                        </div>
+                                    </div>
+
+                                    {/* 营养占比条 */}
+                                    {totalMacro > 0 && (
+                                        <div className="bg-purple-50/50 rounded-xl p-3 border border-purple-100/50">
+                                            <div className="text-xs text-purple-700 font-bold mb-2">营养构成</div>
+                                            <div className="flex h-3 rounded-full overflow-hidden bg-gray-200">
+                                                <div className="bg-blue-400" style={{ width: `${proPct}%` }} />
+                                                <div className="bg-yellow-400" style={{ width: `${carbPct}%` }} />
+                                                <div className="bg-purple-400" style={{ width: `${fatPct}%` }} />
+                                            </div>
+                                            <div className="flex justify-between text-[10px] font-semibold mt-1.5">
+                                                <span className="text-blue-600">蛋白 {proPct}%</span>
+                                                <span className="text-yellow-600">碳水 {carbPct}%</span>
+                                                <span className="text-purple-600">脂肪 {fatPct}%</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 每100g参考 */}
+                                    <div className="text-xs text-gray-400 text-center">
+                                        参考值：每100g 含 {Math.round(cal100)} kcal / {Math.round(pro100 * 10) / 10}g 蛋白 / {Math.round(carb100 * 10) / 10}g 碳水 / {Math.round(fat100 * 10) / 10}g 脂肪
+                                    </div>
+
+                                    <button
+                                        onClick={() => setSelectedFood(null)}
+                                        className="w-full py-2.5 rounded-xl bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-colors"
+                                    >
+                                        关闭
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
-        </div>
     );
 };
 
@@ -314,15 +438,15 @@ const NutritionOverviewCard = ({ label, value, unit, color, bgColor }: any) => {
     return (
         <Card className={`${bgColor} border-0 shadow-sm`}>
             <div className="text-center p-3">
-                <div className={`text-2xl font-bold ${color}`}>{displayValue}</div>
-                <div className="text-xs text-gray-500 mt-1">{label} ({unit})</div>
+                <div className={`text-3xl font-black ${color}`}>{displayValue}</div>
+                <div className="text-sm font-bold text-gray-600 mt-1">{label} ({unit})</div>
             </div>
         </Card>
     );
 };
 
 // 子组件：餐食卡片
-const MealCard = ({ title, emoji, foods, type, onReplace, replacingFood }: any) => {
+const MealCard = ({ title, emoji, foods, type, onReplace, onFoodClick, replacingFood }: any) => {
     const bgGradient =
         type === 'breakfast' ? 'from-orange-100 to-orange-50' :
             type === 'lunch' ? 'from-green-100 to-green-50' :
@@ -369,12 +493,12 @@ const MealCard = ({ title, emoji, foods, type, onReplace, replacingFood }: any) 
                     <div>
                         <h3 className="font-bold text-gray-800 text-lg">{title}</h3>
                         {tip && (
-                            <div className="text-xs text-gray-500">⏰ {tip.time}</div>
+                            <div className="text-sm font-bold text-gray-600">⏰ {tip.time}</div>
                         )}
                     </div>
                 </div>
                 {tip && (
-                    <div className="text-xs text-gray-600 bg-white/50 px-3 py-1.5 rounded-lg">
+                    <div className="text-xs font-bold text-gray-800 bg-white/70 shadow-sm px-3 py-1.5 rounded-lg border border-white/50">
                         💡 <span className="font-medium">{tip.tip}</span>
                     </div>
                 )}
@@ -389,19 +513,23 @@ const MealCard = ({ title, emoji, foods, type, onReplace, replacingFood }: any) 
                     const actualCalories = Math.round((food.calories_per_100g || food.calories || 0) * portion / 100);
                     const actualProtein = Math.round((food.protein_per_100g || food.protein || 0) * portion / 100 * 10) / 10;
                     return (
-                        <div key={idx} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors group">
+                        <div
+                            key={idx}
+                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors group cursor-pointer"
+                            onClick={() => onFoodClick && onFoodClick(food)}
+                        >
                             <div className="w-1.5 h-1.5 rounded-full bg-gray-300 mt-2 group-hover:bg-purple-400 transition-colors"></div>
                             <div className="flex-1">
-                                <div className="font-medium text-gray-900 leading-tight">
+                                <div className="font-bold text-gray-900 text-base leading-tight">
                                     {food.food_name}
                                 </div>
-                                <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2">
-                                    <span className="bg-amber-50 text-amber-700 px-1.5 rounded">{portion}g</span>
+                                <div className="text-sm font-semibold text-gray-600 mt-1 flex flex-wrap gap-2">
+                                    <span className="bg-amber-100/80 text-amber-800 px-1.5 rounded">{portion}g</span>
                                     <span>{actualCalories} kcal</span>
                                     <span>· {actualProtein}g 蛋白</span>
                                 </div>
                                 {food.reason && (
-                                    <div className="text-xs text-purple-600 mt-1 bg-purple-50 px-2 py-0.5 rounded inline-block">
+                                    <div className="text-xs font-bold text-purple-700 mt-1 hover:bg-purple-100 bg-purple-50 px-2 py-0.5 rounded inline-block transition-colors">
                                         💡 {food.reason}
                                     </div>
                                 )}
@@ -409,6 +537,7 @@ const MealCard = ({ title, emoji, foods, type, onReplace, replacingFood }: any) 
                             {/* 替换按钮 */}
                             <button
                                 onClick={() => onReplace && onReplace(idx)}
+                                onMouseDown={(e) => e.stopPropagation()}
                                 disabled={isReplacing}
                                 className={`text-xs px-2 py-1 rounded-full transition-all opacity-0 group-hover:opacity-100 ${isReplacing
                                     ? 'bg-gray-100 text-gray-400 cursor-wait'

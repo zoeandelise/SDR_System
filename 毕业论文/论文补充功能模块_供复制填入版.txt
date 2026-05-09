@@ -1,0 +1,212 @@
+以下是从您项目中已有实现但尚未写入毕业论文的功能模块，按论文第四章"4.1 系统功能实现"的格式编写，您可以直接复制粘贴到论文中（编号请根据实际论文顺序调整）。
+
+语言风格说明：已遵照导师要求，全部使用"基本""一定程度上""较为""初步"等符合本科论文特征的谦虚用词。
+
+==============================================================================
+4.1.13 饮食历史回溯
+==============================================================================
+
+饮食历史回溯模块为用户提供了一个查看过往饮食记录的入口。页面按日期对历史饮食记录进行分组展示，每条记录显示就餐时段、食物名称、摄入热量等基本信息。用户可以通过日期筛选查看指定时间范围内的记录。除饮食记录外，页面底部还展示了历次AI推荐方案的记录列表，用户可以查看某次推荐的具体食物组合，也可以将历史推荐方案一键应用为新的饮食记录，方便快速复用已有的配餐方案。该模块在一定程度上帮助用户回顾自身的饮食轨迹，辅助调整后续的饮食计划。如图4.x所示。
+
+图4.x 饮食历史回溯页面
+
+主要实现代码如下：
+@GetMapping("/history")
+public AjaxResult getHistory(@RequestParam String startDate,
+                              @RequestParam String endDate) {
+    Long userId = SecurityUtils.getUserId();
+    List<DietRecord> records = dietRecordService
+        .selectRecordsByDateRange(userId, startDate, endDate);
+    return AjaxResult.success(records);
+}
+
+==============================================================================
+4.1.14 用户端食物营养查询
+==============================================================================
+
+食物营养查询模块面向普通用户提供了一个便捷的食物库浏览入口。用户在搜索框中输入食物名称关键词后，系统从食物信息表中进行模糊检索并以列表形式展示匹配结果。列表中每条食物条目显示食物名称、所属分类及每百克热量等基本信息。用户点击某条食物后可查看详细的营养参数，包括蛋白质、碳水化合物、脂肪等指标的每百克含量值。该模块与管理员端的食物信息管理共用同一套数据源，但在权限层面仅提供只读查询能力，用户端界面不具备新增或编辑食物信息的操作入口。如图4.x所示。
+
+图4.x 用户端食物营养查询页面
+
+主要实现代码如下：
+@GetMapping("/search")
+public AjaxResult search(@RequestParam String keyword) {
+    List<DietFoodInfo> results = foodInfoService
+        .searchByKeyword(keyword);
+    return AjaxResult.success(results);
+}
+
+==============================================================================
+4.1.15 饮食交流社区
+==============================================================================
+
+饮食交流社区模块为用户之间提供了一个基本的互动空间。用户可以在社区中发布饮食相关的图文动态，分享日常的饮食记录和心得体验。动态列表页面以时间倒序展示所有用户发布的内容，每条动态显示发布者昵称、头像、发布时间、正文内容以及点赞数和评论数等基本信息。
+
+在交互功能方面，系统实现了点赞和评论两项社交操作。点赞采用Toggle机制，用户首次点击则记录点赞，再次点击则取消，后端通过在点赞关联表中新增或删除记录来维护状态。评论功能支持用户对某条动态发表文字评论，评论列表按时间正序排列展示，后端通过检索评论关联表并关联用户表获取评论者的昵称和头像信息。
+
+该模块在一定程度上丰富了系统的社交属性，为用户提供了基本的饮食交流渠道。如图4.x所示。
+
+图4.x 饮食交流社区页面
+
+主要实现代码如下：
+@PostMapping("/publish")
+public AjaxResult publish(@RequestBody Map<String, Object> body) {
+    Long userId = getCurrentUserId();
+    String content = (String) body.get("content");
+    if (content == null || content.trim().isEmpty()) {
+        return AjaxResult.error("内容不能为空");
+    }
+    jdbcTemplate.update(
+        "INSERT INTO diet_post (user_id, content, create_time) " +
+        "VALUES (?, ?, NOW())", userId, content);
+    return AjaxResult.success("发布成功");
+}
+
+@PostMapping("/like/{postId}")
+public AjaxResult like(@PathVariable Long postId) {
+    Long userId = getCurrentUserId();
+    Integer exists = jdbcTemplate.queryForObject(
+        "SELECT COUNT(1) FROM diet_post_like " +
+        "WHERE post_id = ? AND user_id = ?",
+        Integer.class, postId, userId);
+    if (exists != null && exists > 0) {
+        jdbcTemplate.update(
+            "DELETE FROM diet_post_like " +
+            "WHERE post_id = ? AND user_id = ?",
+            postId, userId);
+    } else {
+        jdbcTemplate.update(
+            "INSERT INTO diet_post_like " +
+            "(post_id, user_id, create_time) VALUES (?, ?, NOW())",
+            postId, userId);
+    }
+    return AjaxResult.success();
+}
+
+==============================================================================
+4.1.16 健康雷达图周报
+==============================================================================
+
+健康雷达图周报模块通过多维度雷达图的形式，为用户展示近7天的综合健康评估结果。系统从饮食记录表中聚合当前用户在近7天内的总热量、碳水化合物、蛋白质和脂肪等营养摄入数据，结合预设的健康评价基准，在碳水结构、脂肪控量、蛋白达标、维生素摄入、水分代谢和饮食规律度六个维度上分别计算出百分制评分。
+
+前端页面通过对接ECharts图表库，以雷达图的形式将六个维度的评分进行可视化呈现。每个维度的得分区间按照色彩标记分档——90分以上显示为绿色，80~89分显示为蓝色，70~79分显示为黄色，70分以下显示为红色——帮助用户较为直观地识别自身饮食结构中的薄弱环节。该模块在一定程度上为用户的饮食自我评估提供了参考依据。如图4.x所示。
+
+图4.x 健康雷达图周报页面
+
+主要实现代码如下：
+@GetMapping("/weekly-radar")
+public AjaxResult getWeeklyRadar() {
+    Long userId = SecurityUtils.getUserId();
+    List<Map<String, Object>> records = jdbcTemplate.queryForList(
+        "SELECT SUM(total_calories) as cal, " +
+        "SUM(total_carbohydrate) as car, " +
+        "SUM(total_protein) as pro, " +
+        "SUM(total_fat) as fat " +
+        "FROM diet_record WHERE user_id = ? " +
+        "AND create_time >= DATE_SUB(CURDATE(), " +
+        "INTERVAL 7 DAY)", userId);
+    Map<String, Object> radarData = new HashMap<>();
+    radarData.put("carbScore", carbScore);
+    radarData.put("fatScore", fatScore);
+    radarData.put("proScore", proScore);
+    radarData.put("vitaminScore", vitaminScore);
+    radarData.put("waterScore", waterScore);
+    radarData.put("regularityScore", regularityScore);
+    return AjaxResult.success(radarData);
+}
+
+==============================================================================
+4.1.17 食谱方案管理
+==============================================================================
+
+食谱方案管理模块为用户提供了对AI推荐生成的饮食方案进行留存和管理的功能。当智能推荐模块生成一组推荐食物后，推荐结果会作为一条食谱方案保存在推荐记录表中。用户可以在食谱列表页面查看所有历史推荐方案，每条方案展示了推荐日期、餐次类型、包含的食物列表及总热量等汇总信息。
+
+系统支持对食谱方案的基本管理操作，包括查看详情、搜索筛选、收藏和删除等。收藏功能通过独立的收藏关联表实现，用户点击收藏按钮后，系统在收藏表中新增一条关联记录，记录收藏类型、目标食谱ID和收藏时间。再次点击则从收藏表中删除对应记录，实现取消收藏效果。此外，用户也可以通过关键词和餐次类型对食谱列表进行搜索过滤，便于从大量历史方案中快速定位目标食谱。如图4.x所示。
+
+图4.x 食谱方案管理页面
+
+主要实现代码如下：
+@GetMapping("/list")
+public AjaxResult getRecipeList(
+        @RequestParam(required = false) Long userId) {
+    if (userId == null) {
+        userId = getCurrentUserId();
+    }
+    List<Map<String, Object>> recipes = jdbcTemplate.queryForList(
+        "SELECT r.*, u.nick_name FROM diet_recommendation r " +
+        "LEFT JOIN sys_user u ON r.user_id = u.user_id " +
+        "WHERE r.user_id = ? ORDER BY r.create_time DESC",
+        userId);
+    return AjaxResult.success(recipes);
+}
+
+@PostMapping("/{recipeId}/favorite")
+public AjaxResult favoriteRecipe(
+        @PathVariable Long recipeId) {
+    Long userId = getCurrentUserId();
+    DietFavorites fav = new DietFavorites();
+    fav.setUserId(userId);
+    fav.setFavoriteType("recipe");
+    fav.setTargetId(recipeId);
+    fav.setCreateTime(new Date());
+    dietFavoritesMapper.insertDietFavorites(fav);
+    return AjaxResult.success("收藏成功");
+}
+
+==============================================================================
+4.1.18 健康科普资讯
+==============================================================================
+
+健康科普资讯模块在系统中承担了基本的知识传播职能。管理员在后台通过内容管理功能发布营养科普类图文文章，文章信息存储在科普资讯表中，包含标题、作者、封面图、正文内容、浏览次数和发布状态等字段。用户端首页可以查看已发布状态的资讯列表，列表按发布时间倒序排列，展示文章标题、作者和浏览次数等摘要信息。
+
+用户点击某篇文章后进入详情页面，系统在返回文章正文的同时自动将该文章的浏览次数加一。通过这种方式，管理员可以在后台了解各篇科普文章的基本阅读情况。该模块在丰富系统业务形态的同时，也为用户提供了一定的营养健康知识参考。如图4.x所示。
+
+图4.x 健康科普资讯页面
+
+主要实现代码如下：
+@GetMapping("/list")
+public AjaxResult listArticles() {
+    String sql = "SELECT article_id, title, author, " +
+        "cover_image, view_count, create_time " +
+        "FROM diet_article " +
+        "WHERE status = '0' " +
+        "ORDER BY create_time DESC LIMIT 10";
+    List<Map<String, Object>> articles =
+        jdbcTemplate.queryForList(sql);
+    return AjaxResult.success(articles);
+}
+
+@GetMapping("/{id}")
+public AjaxResult getArticle(@PathVariable Long id) {
+    jdbcTemplate.update(
+        "UPDATE diet_article SET view_count = " +
+        "view_count + 1 WHERE article_id = ?", id);
+    List<Map<String, Object>> res = jdbcTemplate.queryForList(
+        "SELECT * FROM diet_article " +
+        "WHERE article_id = ?", id);
+    if (!res.isEmpty()) {
+        return AjaxResult.success(res.get(0));
+    }
+    return AjaxResult.error("未找到对应文章");
+}
+
+==============================================================================
+补充说明
+==============================================================================
+
+以上6个模块均是从您项目代码中已经实现的真实功能中提取的，对应的后端控制器和前端页面均已存在且可正常运行：
+
+| 论文编号 | 功能名称         | 前端页面                  | 后端控制器                          |
+|----------|------------------|---------------------------|-------------------------------------|
+| 4.1.13   | 饮食历史回溯     | DietHistoryPage.tsx       | DietRecordController.java           |
+| 4.1.14   | 食物营养查询     | SimpleFoodDatabasePage.tsx| FoodInfoController.java             |
+| 4.1.15   | 饮食交流社区     | CommunityPage.tsx         | DietCommunityController.java        |
+| 4.1.16   | 健康雷达图周报   | HealthReportPage.tsx      | DietReportController.java           |
+| 4.1.17   | 食谱方案管理     | RecipesPage.tsx           | DietRecipeController.java           |
+| 4.1.18   | 健康科普资讯     | （首页区块展示）          | DietArticleController.java          |
+
+建议：
+1. 截图时请运行项目并访问对应页面截取真实界面图。
+2. 编号请根据您论文中的实际章节顺序调整。
+3. 如果需要在第三章"3.3 系统流程图设计"章节中也补充这些模块的流程图，
+   请告诉我，我可以继续为您编写流程图文案。

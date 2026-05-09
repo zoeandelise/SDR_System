@@ -1,0 +1,25 @@
+﻿model_list:
+  - model_name: gemini-3.0-flash
+    litellm_params:
+      model: custom_openai/gcli-gemini-3-pro-preview
+      api_base: https://catiecli.sukaka.top/v1
+      api_key: sk-ant-cbd82f2b6da29fe55a9028c88cde87b43e9b2588a7ce0b0c
+  - model_name: claude-haiku-4-5-20251001
+    litellm_params:
+      model: custom_openai/gcli-gemini-3-pro-preview
+      api_base: https://catiecli.sukaka.top/v1
+      api_key: sk-ant-cbd82f2b6da29fe55a9028c88cde87b43e9b2588a7ce0b0c
+  - model_name: claude-3-5-sonnet-20241022
+    litellm_params:
+      model: custom_openai/gcli-gemini-3-pro-preview
+      api_base: https://catiecli.sukaka.top/v1
+      api_key: sk-ant-cbd82f2b6da29fe55a9028c88cde87b43e9b2588a7ce0b0c
+  - model_name: "*"
+    litellm_params:
+      model: custom_openai/gcli-gemini-3-pro-preview
+      api_base: https://catiecli.sukaka.top/v1
+      api_key: sk-ant-cbd82f2b6da29fe55a9028c88cde87b43e9b2588a7ce0b0c
+
+litellm_settings:
+  drop_params: true
+  drop_params_list: ["output_config", "tools", "tool_choice", "stream_options", "beta"]

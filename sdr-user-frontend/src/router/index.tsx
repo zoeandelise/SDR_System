@@ -8,10 +8,9 @@ import DietLogPage from '../pages/SimpleDietLogPage';  // 使用 SimpleDietLogPa
 import FoodDatabasePage from '../pages/SimpleFoodDatabasePage';  // 使用 SimpleFoodDatabasePage 替代
 import NutritionGoalsPage from '../pages/NutritionGoalsPage';
 import HealthReportPage from '../pages/HealthReportPage';
-import RecipesPage from '../pages/RecipesPage';
 import CommunityPage from '../pages/CommunityPage';
-import FavoritesPage from '../pages/FavoritesPage';
 import SettingsPage from '../pages/SettingsPage';
+import CheckinPage from '../pages/CheckinPage';
 
 const router = createBrowserRouter([
   // 登录页面（公开访问，不需要AuthGuard）
@@ -53,16 +52,12 @@ const router = createBrowserRouter([
         element: <HealthReportPage />
       },
       {
-        path: 'recipes',
-        element: <RecipesPage />
-      },
-      {
         path: 'community',
         element: <CommunityPage />
       },
       {
-        path: 'favorites',
-        element: <FavoritesPage />
+        path: 'checkin',
+        element: <CheckinPage />
       },
       {
         path: 'settings',
